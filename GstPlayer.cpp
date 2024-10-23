@@ -24,6 +24,22 @@ GstResource g_gstSinks = {
 	{ ID_SINK_OPENGL, "glimagesink" }
 };
 
+std::string GetExecutableFolderPath()
+{
+	char path[MAX_PATH];
+	std::string fullPath;
+
+	if (GetModuleFileName(NULL, path, MAX_PATH)) 
+	{
+		fullPath = path;
+		size_t pos = fullPath.find_last_of("\\/");
+		if (pos != std::string::npos) {
+			return fullPath.substr(0, pos);
+		}
+	}
+	return "";
+}
+
 CGstPlayer::CGstPlayer()
 {
 	int argc = 0;
@@ -35,6 +51,8 @@ CGstPlayer::CGstPlayer()
 	m_pPipeline = NULL;
 	m_pSource = NULL;
 	m_pSink = NULL;
+	m_pPrintAnalysis = NULL;
+	m_bPrintAnalysisFilter = FALSE;
 }
 
 CGstPlayer::~CGstPlayer()
@@ -49,6 +67,18 @@ BOOL CGstPlayer::Init(HWND hParent)
 	int iDeviceIndex = 0;
 
 	m_hParent = hParent;
+
+	GError* pPluginError = NULL;
+	std::string strPrintAnalysisPluginPath = GetExecutableFolderPath() + "\\" + "printanalysis.dll";
+
+	GstPlugin* pPlugin = gst_plugin_load_file(strPrintAnalysisPluginPath.c_str(), &pPluginError);
+	if (!pPlugin)
+	{
+		m_bPrintAnalysisFilter = FALSE;
+		PostMessage(m_hParent, WM_ON_PRINT_ANALYSIS_NOT_FOUND, 0L, 0L);
+	}
+	else
+		m_bPrintAnalysisFilter = TRUE;
 
 	gst_device_monitor_add_filter(pMonitor, "Video/Source", NULL);
 	m_pDevices = gst_device_monitor_get_devices(pMonitor);
@@ -82,53 +112,107 @@ void CGstPlayer::OnElementAddedToPipeline(GstBin* pBin, GstElement* pElement, gp
 	}
 }
 
-BOOL CGstPlayer::StartPreview(std::string strSource, int iDeviceIndex, std::string strSink, std::string strMediaType, int iWidth, int iHeight, FractionPtr framerate, BOOL bShowFps, std::string& strError, HWND hVideoWindow)
+GstElement* CGstPlayer::AddElement(
+	std::string strFactoryName, std::string name, 
+	std::string strPropertyName, void* pvProperty, 
+	GstElement** pElementOut, std::string& strError)
 {
-	GstElement *pCapsFilter, *pVideoSink;
-	GstCaps* pCaps;
-	gboolean bPipelineConnected = false;
+	strError = "";
 
-	m_hVideoWindow = hVideoWindow;
-	m_strSink = strSink;
-
-	m_pSource = gst_element_factory_make(strSource.c_str(), "source");
-	if (!m_pSource)
+	GstElement* pElement = gst_element_factory_make(strFactoryName.c_str(), name.c_str());
+	if (!pElement)
 	{
-		strError = "Failed to create video source.";
-		return FALSE;
+		strError = "Unable to create " + strFactoryName + " element";
+		return pElement;
 	}
 
-	const gchar* pcDeviceName = gst_device_get_display_name(m_CameraList[iDeviceIndex]);
-	g_object_set(m_pSource, "device-name", pcDeviceName, NULL);
+	if (pvProperty)
+		g_object_set(pElement, strPropertyName.c_str(), pvProperty, NULL);
 
-	pCaps = gst_caps_new_simple(strMediaType.c_str(),
+	if (!gst_bin_add(GST_BIN(m_pPipeline), pElement))
+	{
+		strError = "Unable to add " + strFactoryName + " element to pipeline";
+		gst_object_unref(pElement);
+		return NULL;
+	}
+
+	if (m_elementList.size())
+	{
+		if (!gst_element_link(m_elementList.back(), pElement))
+		{
+			strError = "Unable to link " + strFactoryName + " element";
+			return NULL;
+		}
+	}
+
+	m_elementList.push_back(pElement);
+
+	if (pElementOut)
+		*pElementOut = pElement;
+
+	return pElement;
+}
+
+#define ADD_ELEMENT_WITH_ERR_CHECK(strFactoryName, name, strPropertyName, pvProperty, pElemOut, strError)	\
+	AddElement(strFactoryName, name, strPropertyName, pvProperty, pElemOut, strError);						\
+	if (strError.size())																					\
+	{																										\
+		gst_object_unref(m_pPipeline);																		\
+		m_pPipeline = NULL;																					\
+		return FALSE;																						\
+	}
+
+BOOL CGstPlayer::StartPreview(std::string strSource, int iDeviceIndex, std::string strSink, std::string strMediaType, int iWidth, int iHeight, FractionPtr framerate, BOOL bShowFps, std::string& strError, HWND hVideoWindow)
+{
+	m_elementList.clear();
+	m_hVideoWindow = hVideoWindow;
+	m_strSink = strSink;
+	m_pPipeline = gst_pipeline_new("video-display");
+
+	ADD_ELEMENT_WITH_ERR_CHECK(strSource, "source", "device-name", gst_device_get_display_name(m_CameraList[iDeviceIndex]), &m_pSource, strError);
+
+	GstCaps* pSourceCaps = gst_caps_new_simple(
+		strMediaType.c_str(),
 		"width", G_TYPE_INT, iWidth,
 		"height", G_TYPE_INT, iHeight,
 		"framerate", GST_TYPE_FRACTION, framerate->first, framerate->second,
 		NULL);
 
-	pCapsFilter = gst_element_factory_make("capsfilter", "capsfilter");
-	g_object_set(pCapsFilter, "caps", pCaps, NULL);
+	ADD_ELEMENT_WITH_ERR_CHECK("capsfilter", "source-capsfilter", "caps", pSourceCaps, NULL, strError);
+
+	if (strMediaType == "image/jpeg")
+	{
+		ADD_ELEMENT_WITH_ERR_CHECK("jpegdec", "mjpeg-decoder", "", NULL, NULL, strError);
+		ADD_ELEMENT_WITH_ERR_CHECK("videoconvert", "video-convert", "", NULL, NULL, strError);
+		
+		GstCaps* pVideoConvertCaps = gst_caps_new_simple(
+			"video/x-raw",
+			"format", G_TYPE_STRING, "BGRx",
+			NULL);
+
+		ADD_ELEMENT_WITH_ERR_CHECK("capsfilter", "video-convert-caps-filter", "caps", pVideoConvertCaps, NULL, strError);
+
+		gst_caps_unref(pVideoConvertCaps);
+
+		if (m_bPrintAnalysisFilter)
+		{
+			m_pPrintAnalysis = ADD_ELEMENT_WITH_ERR_CHECK("printanalysis", "print-analysis", "", NULL, NULL, strError);
+			SetPrintAnalysisElementOpts();
+		}
+	}
 
 	if (bShowFps)
 	{
-		pVideoSink = gst_element_factory_make("fpsdisplaysink", "sink");
 		m_pSink = gst_element_factory_make(strSink.c_str(), NULL);
-		g_object_set(G_OBJECT(pVideoSink), "video-sink", m_pSink, NULL);
+		ADD_ELEMENT_WITH_ERR_CHECK("fpsdisplaysink", "sink", "video-sink", m_pSink, NULL, strError);
 	}
 	else
-	{
-		m_pSink = pVideoSink = gst_element_factory_make(strSink.c_str(), "sink");
-	}
+		m_pSink = ADD_ELEMENT_WITH_ERR_CHECK(strSink.c_str(), "sink", "", NULL, NULL, strError);
 	
-	m_pPipeline = gst_pipeline_new("video-display");
-
 	if (strSink != g_gstSinks[ID_SINK_OPENGL])
 	{
 		if (strSink == g_gstSinks[ID_SINK_AUTO])
-		{
 			g_signal_connect(GST_BIN(m_pSink), "element-added", G_CALLBACK(OnElementAddedToPipeline), this);
-		}
 		else
 		{
 			if (GST_IS_VIDEO_OVERLAY(m_pSink))
@@ -138,40 +222,15 @@ BOOL CGstPlayer::StartPreview(std::string strSource, int iDeviceIndex, std::stri
 			}
 		}
 	}
-	
-	if (strMediaType == "image/jpeg")
-	{
-		GstElement *pJpegDec = gst_element_factory_make("jpegdec", "mjpeg-decoder");
-		
-		gst_bin_add_many(GST_BIN(m_pPipeline), m_pSource, pCapsFilter, pJpegDec, pVideoSink, NULL);
-		bPipelineConnected = gst_element_link_many(m_pSource, pCapsFilter, pJpegDec, pVideoSink, NULL);
-	}
-	else
-	{
-		gst_bin_add_many(GST_BIN(m_pPipeline), m_pSource, pCapsFilter, pVideoSink, NULL);
-		bPipelineConnected = gst_element_link_many(m_pSource, pCapsFilter, pVideoSink, NULL);
-	}
-
-	if (!bPipelineConnected)
-	{
-		strError = "Failed to link elements.";
-		gst_object_unref(m_pPipeline);
-		m_pPipeline = NULL;
-		return FALSE;
-	}
 
 	gst_element_set_state(m_pPipeline, GST_STATE_PLAYING);
 
 	m_tGstMainLoopThread = std::thread(std::bind(&CGstPlayer::GstreamerPipelineRun, this));
 
 	if (strSink == g_gstSinks[ID_SINK_OPENGL])
-	{
-		//m_bOpenGlWindowClosed = FALSE;
 		m_tOpenGlMonitorThread = std::thread(std::bind(&CGstPlayer::MonitorOpenGlWindow, this));
-	}
 
-	gst_caps_unref(pCaps);
-
+	gst_caps_unref(pSourceCaps);
 	return TRUE;
 }
 
@@ -189,6 +248,7 @@ void CGstPlayer::StopPreview()
 		gst_element_set_state(m_pPipeline, GST_STATE_NULL);
 		gst_object_unref(m_pPipeline);
 		m_pPipeline = NULL;
+		m_pPrintAnalysis = NULL;
 	}
 }
 
@@ -217,13 +277,22 @@ void CGstPlayer::GstreamerPipelineRun()
 				case GST_MESSAGE_ERROR:
 				{
 					// Error encountered, clean up
-					/*GError* err;
+					GError* err;
 					gchar* debug_info;
 					gst_message_parse_error(msg, &err, &debug_info);
 					g_printerr("Error received: %s\n", err->message);
-					g_printerr("Debug info: %s\n", debug_info ? debug_info : "none");
+					std::string strError = std::string("Error received: ") + err->message;
+					AfxMessageBox(strError.c_str());
+					
+					if (debug_info)
+					{
+						g_printerr("Debug info: %s\n", debug_info ? debug_info : "none");
+						strError = std::string("Debug info: ") + debug_info;
+						AfxMessageBox(strError.c_str());
+					}
+					
 					g_clear_error(&err);
-					g_free(debug_info);*/
+					g_free(debug_info);
 					done = true;
 					break;
 				}
@@ -493,5 +562,30 @@ void CGstPlayer::MonitorOpenGlWindow()
 			break;
 		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(100));  // Check every 100ms
+	}
+}
+
+void CGstPlayer::SetPrintAnalysisOpts(int nAnalysisType, int nGrayscaleType, int nBlackoutType, BOOL bConnectValues, int nAoiHeight, int nAoiPartitions)
+{
+	m_nAnalysisType = nAnalysisType;
+	m_nGrayscaleType = nGrayscaleType;
+	m_nBlackoutType = nBlackoutType;
+	m_bConnectValues = bConnectValues;
+	m_nAoiHeight = nAoiHeight;
+	m_nAoiPartitions = nAoiPartitions;
+
+	SetPrintAnalysisElementOpts();
+}
+
+void CGstPlayer::SetPrintAnalysisElementOpts()
+{
+	if (m_pPrintAnalysis)
+	{
+		g_object_set(G_OBJECT(m_pPrintAnalysis), "analysis-type", m_nAnalysisType - IDC_RADIO_INTENSITY, NULL);
+		g_object_set(G_OBJECT(m_pPrintAnalysis), "blackout-type", m_nBlackoutType - IDC_RADIO_BLACK_WHOLE, NULL);
+		g_object_set(G_OBJECT(m_pPrintAnalysis), "grayscale-type", m_nGrayscaleType - IDC_RADIO_GRAY_WHOLE, NULL);
+		g_object_set(G_OBJECT(m_pPrintAnalysis), "connect-values", m_bConnectValues, NULL);
+		g_object_set(G_OBJECT(m_pPrintAnalysis), "aoi-height", m_nAoiHeight, NULL);
+		g_object_set(G_OBJECT(m_pPrintAnalysis), "aoi-partitions", m_nAoiPartitions, NULL);
 	}
 }

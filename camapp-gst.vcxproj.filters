@@ -42,6 +42,9 @@
     <ClInclude Include="DeviceCapsDlg.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="PrintAnalysisOptsDlg.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="camapp-gst.cpp">
@@ -60,6 +63,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="DeviceCapsDlg.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PrintAnalysisOptsDlg.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

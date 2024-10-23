@@ -6,6 +6,7 @@
 #include "ChildView.h"
 #include "GstPlayer.h"
 #include "DeviceCapsDlg.h"
+#include "PrintAnalysisOptsDlg.h"
 
 #include <vector>
 #include <thread>
@@ -46,6 +47,7 @@ protected:  // control bar embedded members
 	CStatusBar    m_wndStatusBar;
 	CChildView    m_wndView;
 	CDeviceCapsDlg m_deviceCapsDlg;
+	CPrintAnalysisOptsDlg m_printAnalysisOptsDlg;
 
 	int			m_iSelectedCam;
 	BOOL		m_bPreviewEnabled;
@@ -67,10 +69,11 @@ protected:
 	afx_msg void OnSinkSelect(UINT id);
 	afx_msg LRESULT OnResizeWindow(WPARAM wParam, LPARAM lParam);
 	afx_msg LRESULT OnOpenGlWindowClose(WPARAM wParam, LPARAM lParam);
+	afx_msg LRESULT OnPrintAnalysisChangeOpts(WPARAM wParam, LPARAM lParam);
 	afx_msg void OnCameraOptions();
 	afx_msg void OnShowFps();
+	afx_msg void OnPrintAnalysisOptions();
+	afx_msg LRESULT OnPrintAnalysisFilterNotFound(WPARAM wParam, LPARAM lParam);
 	DECLARE_MESSAGE_MAP()
 
 };
-
-

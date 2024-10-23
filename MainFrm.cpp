@@ -33,8 +33,11 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWnd)
 	ON_COMMAND(ID_OPTIONS_PREVIEW, &CMainFrame::OnPreview)
 	ON_MESSAGE(WM_ON_RESIZE_WINDOW, &CMainFrame::OnResizeWindow)
 	ON_MESSAGE(WM_ON_OPENGL_WINDOW_CLOSE, &CMainFrame::OnOpenGlWindowClose)
+	ON_MESSAGE(WM_ON_PRINT_ANALYSIS_CHANGE_OPTS, &CMainFrame::OnPrintAnalysisChangeOpts)
 	ON_COMMAND(ID_OPTIONS_CAMERAPROPERTIES, &CMainFrame::OnCameraOptions)
 	ON_COMMAND(ID_OPTIONS_SHOWFPS, &CMainFrame::OnShowFps)
+	ON_COMMAND(ID_MENU_PRINT_ANALYSIS_OPTS, &CMainFrame::OnPrintAnalysisOptions)
+	ON_MESSAGE(WM_ON_PRINT_ANALYSIS_NOT_FOUND, &CMainFrame::OnPrintAnalysisFilterNotFound)
 END_MESSAGE_MAP()
 
 static UINT indicators[] =
@@ -221,6 +224,15 @@ void CMainFrame::OnPreview()
 		ResolutionPtr pResolution = (*(pDeviceCaps->m_resolutions))[iResolutionIdx];
 		FractionPtr pFramerate = (*(pResolution->m_framerates))[iFramerateIdx];
 
+		m_gstPlayer.SetPrintAnalysisOpts(
+			m_printAnalysisOptsDlg.GetAnalysisType(),
+			m_printAnalysisOptsDlg.GetGrayscaleType(),
+			m_printAnalysisOptsDlg.GetBlackoutType(),
+			m_printAnalysisOptsDlg.GetConnectValues(),
+			m_printAnalysisOptsDlg.GetAoiHeight(),
+			m_printAnalysisOptsDlg.GetAoiPartitions()
+		);
+
 		BOOL bRet = m_gstPlayer.StartPreview(
 			m_strSource, 
 			m_iSelectedCam, 
@@ -323,6 +335,20 @@ LRESULT CMainFrame::OnOpenGlWindowClose(WPARAM wParam, LPARAM lParam)
 	return 0;
 }
 
+LRESULT CMainFrame::OnPrintAnalysisChangeOpts(WPARAM wParam, LPARAM lParam)
+{
+	m_gstPlayer.SetPrintAnalysisOpts(
+		m_printAnalysisOptsDlg.GetAnalysisType(),
+		m_printAnalysisOptsDlg.GetGrayscaleType(),
+		m_printAnalysisOptsDlg.GetBlackoutType(),
+		m_printAnalysisOptsDlg.GetConnectValues(),
+		m_printAnalysisOptsDlg.GetAoiHeight(),
+		m_printAnalysisOptsDlg.GetAoiPartitions()
+	);
+
+	return 0;
+}
+
 void CMainFrame::OnCameraOptions()
 {
 	m_deviceCapsDlg.DoModal();
@@ -334,4 +360,17 @@ void CMainFrame::OnShowFps()
 
 	CMenu* pOptionsMenu = GetMenu()->GetSubMenu(ID_MENU_OPTIONS);
 	pOptionsMenu->CheckMenuItem(ID_OPTIONS_SHOWFPS, m_bShowFps ? MF_CHECKED : MF_UNCHECKED);
+}
+
+void CMainFrame::OnPrintAnalysisOptions()
+{
+	m_printAnalysisOptsDlg.DoModal();
+}
+
+LRESULT CMainFrame::OnPrintAnalysisFilterNotFound(WPARAM wParam, LPARAM lParam)
+{
+	CMenu* pOptionsMenu = GetMenu()->GetSubMenu(ID_MENU_OPTIONS);
+	pOptionsMenu->EnableMenuItem(ID_MENU_PRINT_ANALYSIS_OPTS, MF_DISABLED);
+
+	return 0;
 }
