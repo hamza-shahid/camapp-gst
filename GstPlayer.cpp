@@ -154,15 +154,17 @@ GstElement* CGstPlayer::AddElement(
 }
 
 #define ADD_ELEMENT_WITH_ERR_CHECK(strFactoryName, name, strPropertyName, pvProperty, pElemOut, strError)	\
-	AddElement(strFactoryName, name, strPropertyName, pvProperty, pElemOut, strError);						\
-	if (strError.size())																					\
 	{																										\
-		gst_object_unref(m_pPipeline);																		\
-		m_pPipeline = NULL;																					\
-		return FALSE;																						\
+		AddElement(strFactoryName, name, strPropertyName, pvProperty, pElemOut, strError);					\
+		if (strError.size())																				\
+		{																									\
+			gst_object_unref(m_pPipeline);																	\
+			m_pPipeline = NULL;																				\
+			return FALSE;																					\
+		}																									\
 	}
 
-BOOL CGstPlayer::StartPreview(std::string strSource, int iDeviceIndex, std::string strSink, std::string strMediaType, int iWidth, int iHeight, FractionPtr framerate, BOOL bShowFps, std::string& strError, HWND hVideoWindow)
+BOOL CGstPlayer::StartPreview(std::string strSource, int iDeviceIndex, std::string strSink, std::string strMediaType, std::string strFormat, int iWidth, int iHeight, FractionPtr framerate, BOOL bShowFps, std::string& strError, HWND hVideoWindow)
 {
 	m_elementList.clear();
 	m_hVideoWindow = hVideoWindow;
@@ -178,11 +180,16 @@ BOOL CGstPlayer::StartPreview(std::string strSource, int iDeviceIndex, std::stri
 		"framerate", GST_TYPE_FRACTION, framerate->first, framerate->second,
 		NULL);
 
+	if (strMediaType == "video/x-raw")
+		gst_caps_set_simple(pSourceCaps, "format", G_TYPE_STRING, strFormat.c_str(), NULL);
+
 	ADD_ELEMENT_WITH_ERR_CHECK("capsfilter", "source-capsfilter", "caps", pSourceCaps, NULL, strError);
 
 	if (strMediaType == "image/jpeg")
-	{
 		ADD_ELEMENT_WITH_ERR_CHECK("jpegdec", "mjpeg-decoder", "", NULL, NULL, strError);
+
+	if (strMediaType == "image/jpeg" || (strMediaType == "video/x-raw" && strFormat != "YUY2"))
+	{
 		ADD_ELEMENT_WITH_ERR_CHECK("videoconvert", "video-convert", "", NULL, NULL, strError);
 		
 		GstCaps* pVideoConvertCaps = gst_caps_new_simple(
@@ -193,12 +200,12 @@ BOOL CGstPlayer::StartPreview(std::string strSource, int iDeviceIndex, std::stri
 		ADD_ELEMENT_WITH_ERR_CHECK("capsfilter", "video-convert-caps-filter", "caps", pVideoConvertCaps, NULL, strError);
 
 		gst_caps_unref(pVideoConvertCaps);
+	}
 
-		if (m_bPrintAnalysisFilter)
-		{
-			m_pPrintAnalysis = ADD_ELEMENT_WITH_ERR_CHECK("printanalysis", "print-analysis", "", NULL, NULL, strError);
-			SetPrintAnalysisElementOpts();
-		}
+	if (m_bPrintAnalysisFilter)
+	{
+		ADD_ELEMENT_WITH_ERR_CHECK("printanalysis", "print-analysis", "", NULL, &m_pPrintAnalysis, strError);
+		SetPrintAnalysisElementOpts();
 	}
 
 	if (bShowFps)
@@ -207,7 +214,7 @@ BOOL CGstPlayer::StartPreview(std::string strSource, int iDeviceIndex, std::stri
 		ADD_ELEMENT_WITH_ERR_CHECK("fpsdisplaysink", "sink", "video-sink", m_pSink, NULL, strError);
 	}
 	else
-		m_pSink = ADD_ELEMENT_WITH_ERR_CHECK(strSink.c_str(), "sink", "", NULL, NULL, strError);
+		ADD_ELEMENT_WITH_ERR_CHECK(strSink.c_str(), "sink", "", NULL, &m_pSink, strError);
 	
 	if (strSink != g_gstSinks[ID_SINK_OPENGL])
 	{

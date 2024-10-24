@@ -237,7 +237,8 @@ void CMainFrame::OnPreview()
 			m_strSource, 
 			m_iSelectedCam, 
 			m_strSink,
-			pDeviceCaps->m_strMediaType, 
+			pDeviceCaps->m_strMediaType,
+			pDeviceCaps->m_strFormat,
 			pResolution->m_iWidth, 
 			pResolution->m_iHeight, 
 			pFramerate,
@@ -248,12 +249,14 @@ void CMainFrame::OnPreview()
 		if (!bRet)
 			MessageBox(strError.c_str());
 		else
+		{
 			m_bPreviewEnabled = TRUE;
-		
-		std::string strStatus = "Playing: (Device = " + m_gstPlayer.GetDeviceName(m_iSelectedCam) + ", Source = " + m_strSource + ", Sink = " + m_strSink +
-			", Format = " + pDeviceCaps->m_strFormat + ", Resolution = " + std::to_string(pResolution->m_iWidth) + "x" + std::to_string(pResolution->m_iHeight) +
-			", FPS = " + std::to_string(pFramerate->first) + "/" + std::to_string(pFramerate->second) + ")";
-		m_wndStatusBar.SetPaneText(ID_PANE_STATUS, strStatus.c_str());
+
+			std::string strStatus = "Playing: (Device = " + m_gstPlayer.GetDeviceName(m_iSelectedCam) + ", Source = " + m_strSource + ", Sink = " + m_strSink +
+				", Format = " + pDeviceCaps->m_strFormat + ", Resolution = " + std::to_string(pResolution->m_iWidth) + "x" + std::to_string(pResolution->m_iHeight) +
+				", FPS = " + std::to_string(pFramerate->first) + "/" + std::to_string(pFramerate->second) + ")";
+			m_wndStatusBar.SetPaneText(ID_PANE_STATUS, strStatus.c_str());
+		}
 	}
 	else
 	{

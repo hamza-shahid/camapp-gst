@@ -51,7 +51,7 @@ public:
 	~CGstPlayer();
 
 	BOOL Init(HWND hParent);
-	BOOL StartPreview(std::string strSource, int iDeviceIndex, std::string strSink, std::string strMediaType, int iWidth, int iHeight, FractionPtr framerate, BOOL bShowFps, std::string& strError, HWND hVideoWindow);
+	BOOL StartPreview(std::string strSource, int iDeviceIndex, std::string strSink, std::string strMediaType, std::string strFormat, int iWidth, int iHeight, FractionPtr framerate, BOOL bShowFps, std::string& strError, HWND hVideoWindow);
 	void StopPreview();
 	void GetCurrentResolution(int &iWidth, int &iHeight);
 	void Redraw();
