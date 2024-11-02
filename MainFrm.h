@@ -7,6 +7,8 @@
 #include "GstPlayer.h"
 #include "DeviceCapsDlg.h"
 #include "PrintAnalysisOptsDlg.h"
+#include "VideoProcAmpPage.h"
+#include "CameraControlsPage.h"
 
 #include <vector>
 #include <thread>
@@ -22,6 +24,8 @@ protected:
 	void EnableDisableMenuDevices();
 	void EnableDisableMenuSources();
 	void EnableDisableMenuSinks();
+
+	HRESULT GetCameraSettingsInterfaces();
 
 // Attributes
 public:
@@ -56,8 +60,13 @@ protected:  // control bar embedded members
 	std::string m_strSink;
 	CGstPlayer	m_gstPlayer;
 
+	CMFCPropertySheet* m_pDlgCamSettingsPropSheet;
+	CCameraControlsPage m_dlgCamCtrl;
+	CVideoProcAmpPage m_dlgVidProcAmp;
+
 	DeviceCapsListPtr m_deviceCapsList;
 
+	CComPtr<IAMVideoProcAmp> m_pAmVideoProcAmp;
 
 // Generated message map functions
 protected:
@@ -74,6 +83,7 @@ protected:
 	afx_msg void OnShowFps();
 	afx_msg void OnPrintAnalysisOptions();
 	afx_msg LRESULT OnPrintAnalysisFilterNotFound(WPARAM wParam, LPARAM lParam);
+	afx_msg void OnCameraSettings();
 	DECLARE_MESSAGE_MAP()
 
 };

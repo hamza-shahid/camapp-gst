@@ -9,6 +9,9 @@
 
 #include <cstdlib>
 #include <sstream>
+#include <comdef.h>
+#include <dshow.h>
+
 
 
 #ifdef _DEBUG
@@ -19,6 +22,7 @@
 #define ID_MENU_SOURCES					2
 #define ID_MENU_SINKS					3
 #define ID_MENU_OPTIONS					4
+
 
 // CMainFrame
 
@@ -35,6 +39,7 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWnd)
 	ON_MESSAGE(WM_ON_OPENGL_WINDOW_CLOSE, &CMainFrame::OnOpenGlWindowClose)
 	ON_MESSAGE(WM_ON_PRINT_ANALYSIS_CHANGE_OPTS, &CMainFrame::OnPrintAnalysisChangeOpts)
 	ON_COMMAND(ID_OPTIONS_CAMERAPROPERTIES, &CMainFrame::OnCameraOptions)
+	ON_COMMAND(ID_OPTIONS_CAMERASETTINGS, &CMainFrame::OnCameraSettings)
 	ON_COMMAND(ID_OPTIONS_SHOWFPS, &CMainFrame::OnShowFps)
 	ON_COMMAND(ID_MENU_PRINT_ANALYSIS_OPTS, &CMainFrame::OnPrintAnalysisOptions)
 	ON_MESSAGE(WM_ON_PRINT_ANALYSIS_NOT_FOUND, &CMainFrame::OnPrintAnalysisFilterNotFound)
@@ -56,12 +61,23 @@ CMainFrame::CMainFrame() noexcept
 	m_bPreviewEnabled = FALSE;
 	m_bShowFps = TRUE;
 	m_iSelectedCam = 0;
+	m_pDlgCamSettingsPropSheet = NULL;
+
+	HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+	if (FAILED(hr)) {
+	}
+
 }
 
 CMainFrame::~CMainFrame()
 {
+	if (m_pDlgCamSettingsPropSheet)
+		delete m_pDlgCamSettingsPropSheet;
+
 	if (m_bPreviewEnabled)
 		m_gstPlayer.StopPreview();
+
+	CoUninitialize();
 }
 
 int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
@@ -117,6 +133,8 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 
 	m_deviceCapsList = m_gstPlayer.GetDeviceCaps(m_strSource, 0);
 	m_deviceCapsDlg.UpdateDeviceCaps(m_strSource, 0, m_deviceCapsList);
+
+	m_pDlgCamSettingsPropSheet = new CMFCPropertySheet("Camera Settings", this);
 
 	return 0;
 }
@@ -355,6 +373,82 @@ LRESULT CMainFrame::OnPrintAnalysisChangeOpts(WPARAM wParam, LPARAM lParam)
 void CMainFrame::OnCameraOptions()
 {
 	m_deviceCapsDlg.DoModal();
+}
+
+HRESULT CMainFrame::GetCameraSettingsInterfaces()
+{
+	CComPtr<ICreateDevEnum> pDevEnum;
+	CComPtr<IEnumMoniker> pEnum;
+
+	HRESULT hr = CoCreateInstance(CLSID_SystemDeviceEnum, NULL, CLSCTX_INPROC_SERVER, IID_ICreateDevEnum, (void**)&pDevEnum);
+	if (SUCCEEDED(hr)) {
+		hr = pDevEnum->CreateClassEnumerator(CLSID_VideoInputDeviceCategory, &pEnum, 0);
+		if (hr == S_FALSE) {
+			hr = VFW_E_NOT_FOUND;  // No video capture devices found
+		}
+	}
+
+	CComPtr<IMoniker> pMoniker;
+	CComPtr<IBaseFilter> pCapFilter;
+	
+	if (SUCCEEDED(hr)) {
+		while (pEnum->Next(1, &pMoniker, NULL) == S_OK) {
+			CComPtr<IPropertyBag> pPropBag;
+			hr = pMoniker->BindToStorage(0, 0, IID_IPropertyBag, (void**)&pPropBag);
+			if (FAILED(hr)) {
+				continue;
+			}
+
+			VARIANT varName;
+			VariantInit(&varName);
+			hr = pPropBag->Read(L"FriendlyName", &varName, 0);
+			if (SUCCEEDED(hr) && varName.vt == VT_BSTR) {
+				// Convert BSTR to char*
+				_bstr_t bstrName(varName.bstrVal);
+				const char* deviceName = bstrName;
+
+				if (strcmp(deviceName, m_gstPlayer.GetDeviceName(m_iSelectedCam).c_str()) == 0) {
+					// Found the device
+					VariantClear(&varName);
+					break;
+				}
+			}
+			VariantClear(&varName);
+			pMoniker = nullptr;
+		}
+
+		if (pMoniker != NULL) {
+			hr = pMoniker->BindToObject(0, 0, IID_IBaseFilter, (void**)&pCapFilter);
+			if (FAILED(hr)) {
+				return hr;
+			}
+		}
+		else {
+			// Device not found
+			hr = E_FAIL;
+		}
+	}
+
+	m_pAmVideoProcAmp = nullptr;
+
+	hr = pCapFilter->QueryInterface(IID_IAMVideoProcAmp, (void**)&m_pAmVideoProcAmp);
+	return hr;
+}
+
+void CMainFrame::OnCameraSettings()
+{
+	int pageCount = m_pDlgCamSettingsPropSheet->GetPageCount();
+	for (int i = pageCount - 1; i >= 0; --i)
+		m_pDlgCamSettingsPropSheet->RemovePage(i);
+	
+	m_pDlgCamSettingsPropSheet->AddPage(&m_dlgCamCtrl);
+	m_pDlgCamSettingsPropSheet->AddPage(&m_dlgVidProcAmp);
+
+	HRESULT hr = GetCameraSettingsInterfaces();
+	if (SUCCEEDED(hr))
+		m_dlgVidProcAmp.SetVideoProcAmpInterface(m_pAmVideoProcAmp);
+
+	m_pDlgCamSettingsPropSheet->DoModal();
 }
 
 void CMainFrame::OnShowFps()

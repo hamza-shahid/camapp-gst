@@ -45,6 +45,12 @@
     <ClInclude Include="PrintAnalysisOptsDlg.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="CameraControlsPage.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="VideoProcAmpPage.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="camapp-gst.cpp">
@@ -66,6 +72,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="PrintAnalysisOptsDlg.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CameraControlsPage.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="VideoProcAmpPage.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
