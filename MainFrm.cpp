@@ -56,6 +56,8 @@ static UINT indicators[] =
 // CMainFrame construction/destruction
 
 CMainFrame::CMainFrame() noexcept
+	: m_pAmVideoProcAmp(nullptr)
+	, m_pAmCameraControl(nullptr)
 {
 	m_bAutoMenuEnable = FALSE;
 	m_bPreviewEnabled = FALSE;
@@ -430,8 +432,11 @@ HRESULT CMainFrame::GetCameraSettingsInterfaces()
 	}
 
 	m_pAmVideoProcAmp = nullptr;
+	m_pAmCameraControl = nullptr;
 
 	hr = pCapFilter->QueryInterface(IID_IAMVideoProcAmp, (void**)&m_pAmVideoProcAmp);
+	hr = pCapFilter->QueryInterface(IID_IAMCameraControl, (void**)&m_pAmCameraControl);
+
 	return hr;
 }
 
@@ -446,7 +451,10 @@ void CMainFrame::OnCameraSettings()
 
 	HRESULT hr = GetCameraSettingsInterfaces();
 	if (SUCCEEDED(hr))
+	{
 		m_dlgVidProcAmp.SetVideoProcAmpInterface(m_pAmVideoProcAmp);
+		m_dlgCamCtrl.SetCameraControlInterface(m_pAmCameraControl);
+	}
 
 	m_pDlgCamSettingsPropSheet->DoModal();
 }

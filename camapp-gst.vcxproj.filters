@@ -51,6 +51,9 @@
     <ClInclude Include="VideoProcAmpPage.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="CameraSliderProperties.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="camapp-gst.cpp">
@@ -78,6 +81,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="VideoProcAmpPage.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CameraSliderProperties.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

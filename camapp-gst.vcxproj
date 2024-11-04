@@ -201,6 +201,7 @@
   <ItemGroup>
     <ClInclude Include="camapp-gst.h" />
     <ClInclude Include="CameraControlsPage.h" />
+    <ClInclude Include="CameraSliderProperties.h" />
     <ClInclude Include="ChildView.h" />
     <ClInclude Include="DeviceCapsDlg.h" />
     <ClInclude Include="framework.h" />
@@ -215,6 +216,7 @@
   <ItemGroup>
     <ClCompile Include="camapp-gst.cpp" />
     <ClCompile Include="CameraControlsPage.cpp" />
+    <ClCompile Include="CameraSliderProperties.cpp" />
     <ClCompile Include="ChildView.cpp" />
     <ClCompile Include="DeviceCapsDlg.cpp" />
     <ClCompile Include="GstPlayer.cpp" />

@@ -67,6 +67,7 @@ protected:  // control bar embedded members
 	DeviceCapsListPtr m_deviceCapsList;
 
 	CComPtr<IAMVideoProcAmp> m_pAmVideoProcAmp;
+	CComPtr<IAMCameraControl> m_pAmCameraControl;
 
 // Generated message map functions
 protected:
