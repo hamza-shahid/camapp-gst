@@ -14,6 +14,7 @@
 #define MENU_VDEVICE8                   18
 #define MENU_VDEVICE9                   19
 #define IDD_ABOUTBOX                    100
+#define IDD_DIALOGBAR                   103
 #define IDD_PROPPAGE_CAMERA_CONTROLS    107
 #define IDR_MAINFRAME                   128
 #define IDR_CAMAPP_GST_TYPE             130
@@ -22,6 +23,14 @@
 #define IDD_DEVICE_CAPS                 310
 #define IDD_PRINT_ANALYSIS_OPTS         312
 #define IDD_PROPPAGE_VIDEO_PROC         313
+#define IDB_PNG_PREVIEW                 319
+#define IDB_BITMAP1                     321
+#define IDB_PNG_CAMERA_SETTINGS         328
+#define IDB_PNG_VIDEO_SETTINGS          329
+#define IDB_PNG_PRINT_ANALYSIS          330
+#define IDB_PNG_PREVIEW_STOP            331
+#define IDB_PNG1                        332
+#define IDB_PNG_SNAPSHOT                332
 #define IDC_FORMAT                      1001
 #define IDC_STATIC_FORMAT               1002
 #define IDC_COMBO_FRAME_SIZE            1003
@@ -48,31 +57,6 @@
 #define IDC_BUTTON_VID_PROC_AMP_DEFAULT 1022
 #define IDC_STATIC_AUTO                 1028
 #define IDC_COMBO_PL_FREQ               1053
-
-#define IDC_SLIDER_ZOOM                 3020
-#define IDC_SLIDER_FOCUS                3021
-#define IDC_SLIDER_EXPOSURE             3022
-#define IDC_SLIDER_APERTURE             3023
-#define IDC_SLIDER_PAN                  3024
-#define IDC_SLIDER_TILT                 3025
-#define IDC_SLIDER_ROLL                 3026
-
-#define IDC_EDIT_ZOOM                   4020
-#define IDC_EDIT_FOCUS                  4021
-#define IDC_EDIT_EXPOSURE               4022
-#define IDC_EDIT_APERTURE               4023
-#define IDC_EDIT_PAN                    4024
-#define IDC_EDIT_TILT                   4025
-#define IDC_EDIT_ROLL                   4026
-
-#define IDC_CHECK_ZOOM                  2020
-#define IDC_CHECK_FOCUS                 2021
-#define IDC_CHECK_EXPOSURE              2022
-#define IDC_CHECK_APERTURE              2023
-#define IDC_CHECK_PAN                   2024
-#define IDC_CHECK_TILT                  2025
-#define IDC_CHECK_ROLL                  2026
-
 #define IDC_STATIC_ZOOM                 1057
 #define IDC_STATIC_FOCUS                1058
 #define IDC_STATIC_EXPOSURE             1062
@@ -108,6 +92,13 @@
 #define IDC_CHECK_BACKLIGHT_COMP        2017
 #define IDC_CHECK_GAIN                  2018
 #define IDC_CHECK_COLOR_ENB             2019
+#define IDC_CHECK_ZOOM                  2020
+#define IDC_CHECK_FOCUS                 2021
+#define IDC_CHECK_EXPOSURE              2022
+#define IDC_CHECK_APERTURE              2023
+#define IDC_CHECK_PAN                   2024
+#define IDC_CHECK_TILT                  2025
+#define IDC_CHECK_ROLL                  2026
 #define IDC_SLIDER_BRIGHTNESS           3010
 #define IDC_SLIDER_CONTRAST             3011
 #define IDC_SLIDER_HUE                  3012
@@ -117,6 +108,13 @@
 #define IDC_SLIDER_WHITE_BAL            3016
 #define IDC_SLIDER_BACKLIGHT_COMP       3017
 #define IDC_SLIDER_GAIN                 3018
+#define IDC_SLIDER_ZOOM                 3020
+#define IDC_SLIDER_FOCUS                3021
+#define IDC_SLIDER_EXPOSURE             3022
+#define IDC_SLIDER_APERTURE             3023
+#define IDC_SLIDER_PAN                  3024
+#define IDC_SLIDER_TILT                 3025
+#define IDC_SLIDER_ROLL                 3026
 #define IDC_EDIT_BRIGHTNESS             4010
 #define IDC_EDIT_CONTRAST               4011
 #define IDC_EDIT_HUE                    4012
@@ -126,6 +124,13 @@
 #define IDC_EDIT_WHITE_BAL              4016
 #define IDC_EDIT_BACKLIGHT_COMP         4017
 #define IDC_EDIT_GAIN                   4018
+#define IDC_EDIT_ZOOM                   4020
+#define IDC_EDIT_FOCUS                  4021
+#define IDC_EDIT_EXPOSURE               4022
+#define IDC_EDIT_APERTURE               4023
+#define IDC_EDIT_PAN                    4024
+#define IDC_EDIT_TILT                   4025
+#define IDC_EDIT_ROLL                   4026
 #define ID_OPTIONS_PREVIEW              32771
 #define ID_SOURCE_KERNELSTREAMING       32772
 #define ID_SOURCE_MEDIAFOUNDATION       32773
@@ -138,14 +143,16 @@
 #define ID_SINK_OPENGL                  32780
 #define ID_MENU_PRINT_ANALYSIS_OPTS     32781
 #define ID_OPTIONS_CAMERASETTINGS       32783
+#define ID_Menu                         32786
+#define ID_OPTIONS_SNAPSHOT             32787
 #define ID_DEVICE_START                 33000
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        315
-#define _APS_NEXT_COMMAND_VALUE         32784
+#define _APS_NEXT_RESOURCE_VALUE        333
+#define _APS_NEXT_COMMAND_VALUE         32788
 #define _APS_NEXT_CONTROL_VALUE         1095
 #define _APS_NEXT_SYMED_VALUE           310
 #endif

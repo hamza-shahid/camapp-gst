@@ -211,6 +211,7 @@
     <ClInclude Include="PrintAnalysisOptsDlg.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
+    <ClInclude Include="Utils.h" />
     <ClInclude Include="VideoProcAmpPage.h" />
   </ItemGroup>
   <ItemGroup>
@@ -228,6 +229,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="PrintAnalysisOptsDlg.cpp" />
+    <ClCompile Include="Utils.cpp" />
     <ClCompile Include="VideoProcAmpPage.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -237,7 +239,13 @@
     <None Include="res\camappgst.rc2" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="res\analysis.png" />
     <Image Include="res\camapp-gst.ico" />
+    <Image Include="res\camera_settings.png" />
+    <Image Include="res\preview-stop.png" />
+    <Image Include="res\preview.png" />
+    <Image Include="res\snapshot.png" />
+    <Image Include="res\video-settings.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -13,7 +13,19 @@
 #include <vector>
 #include <thread>
 #include <string>
+#include <unordered_map>
 
+
+struct ToolbarBtn
+{
+	int nCmdId;
+	int nImgIdxDefault = -1;
+	int nImgIdxPressed = -1;
+	BOOL bToggleFlag = FALSE;
+};
+
+typedef std::shared_ptr< ToolbarBtn > ToolbarBtnPtr;
+typedef std::unordered_map<int, ToolbarBtnPtr> ToolbarBtnList;
 
 class CMainFrame : public CFrameWnd
 {
@@ -26,6 +38,8 @@ protected:
 	void EnableDisableMenuSinks();
 
 	HRESULT GetCameraSettingsInterfaces();
+	void AddToolbarButton(int nCommandId, int nResourceIdDefault, int nResourceIdPressed = -1);
+	void ToggleToolbarButton(int nBtnCommandId);
 
 // Attributes
 public:
@@ -48,10 +62,17 @@ public:
 #endif
 
 protected:  // control bar embedded members
-	CStatusBar    m_wndStatusBar;
-	CChildView    m_wndView;
-	CDeviceCapsDlg m_deviceCapsDlg;
-	CPrintAnalysisOptsDlg m_printAnalysisOptsDlg;
+	CStatusBar				m_wndStatusBar;
+	CDialogBar				m_wndDialogBar;
+	CToolBar				m_wndToolBar;
+	CToolTipCtrl			m_tooltips;
+	CImageList				m_imgList;
+	int						m_nToolbarBtnImageWidth;
+	int						m_nToolbarBtnImageHeight;
+	CChildView				m_wndView;
+	CDeviceCapsDlg			m_deviceCapsDlg;
+	CPrintAnalysisOptsDlg	m_printAnalysisOptsDlg;
+	ToolbarBtnList			m_toolbarBtnList;
 
 	int			m_iSelectedCam;
 	BOOL		m_bPreviewEnabled;
@@ -60,7 +81,7 @@ protected:  // control bar embedded members
 	std::string m_strSink;
 	CGstPlayer	m_gstPlayer;
 
-	CMFCPropertySheet* m_pDlgCamSettingsPropSheet;
+	CPropertySheet* m_pDlgCamSettingsPropSheet;
 	CCameraControlsPage m_dlgCamCtrl;
 	CVideoProcAmpPage m_dlgVidProcAmp;
 
@@ -74,6 +95,7 @@ protected:
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
 	afx_msg void OnSetFocus(CWnd *pOldWnd);
 	afx_msg void OnPreview();
+	afx_msg void OnSnapshot();
 	afx_msg void OnCameraSelect(UINT id);
 	afx_msg void OnSourceSelect(UINT id);
 	afx_msg void OnSinkSelect(UINT id);
@@ -85,6 +107,8 @@ protected:
 	afx_msg void OnPrintAnalysisOptions();
 	afx_msg LRESULT OnPrintAnalysisFilterNotFound(WPARAM wParam, LPARAM lParam);
 	afx_msg void OnCameraSettings();
+	afx_msg void OnUpdateSnapshotToolbarBtn(CCmdUI* pCmdUI);
+	afx_msg void OnUpdateCameraSettingsToolbarBtn(CCmdUI* pCmdUI);
 	DECLARE_MESSAGE_MAP()
 
 };

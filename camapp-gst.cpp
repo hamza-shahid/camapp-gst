@@ -8,7 +8,7 @@
 #include "afxdialogex.h"
 #include "camapp-gst.h"
 #include "MainFrm.h"
-
+#include "Utils.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -46,7 +46,7 @@ BOOL CCamGstApp::InitInstance()
 {
 	CWinApp::InitInstance();
 
-
+	CUtils::InitGdiPlus();
 	EnableTaskbarInteraction(FALSE);
 
 	// AfxInitRichEdit2() is required to use RichEdit control
@@ -85,7 +85,8 @@ BOOL CCamGstApp::InitInstance()
 
 int CCamGstApp::ExitInstance()
 {
-	//TODO: handle additional resources you may have added
+	CUtils::DeInitGdiPlus();
+
 	return CWinApp::ExitInstance();
 }
 

@@ -40,8 +40,7 @@ BOOL CChildView::PreCreateWindow(CREATESTRUCT& cs)
 	if (!CWnd::PreCreateWindow(cs))
 		return FALSE;
 
-	//cs.dwExStyle |= WS_EX_CLIENTEDGE;
-	//cs.style &= ~WS_BORDER;
+	cs.dwExStyle |= WS_EX_CLIENTEDGE;
 	cs.style = WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS;
 	cs.lpszClass = AfxRegisterWndClass(CS_HREDRAW|CS_VREDRAW|CS_DBLCLKS, 
 		::LoadCursor(nullptr, IDC_ARROW), reinterpret_cast<HBRUSH>(COLOR_WINDOW+1), nullptr);

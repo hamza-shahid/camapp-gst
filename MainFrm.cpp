@@ -6,13 +6,13 @@
 #include "framework.h"
 #include "camapp-gst.h"
 #include "MainFrm.h"
+#include "Utils.h"
 
 #include <cstdlib>
 #include <sstream>
 #include <comdef.h>
 #include <dshow.h>
-
-
+#include <afxtoolbarimages.h>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -35,6 +35,7 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWnd)
 	ON_COMMAND_RANGE(ID_SOURCE_KERNELSTREAMING, ID_SOURCE_DIRECTSHOW, &CMainFrame::OnSourceSelect)
 	ON_COMMAND_RANGE(ID_SINK_AUTO, ID_SINK_OPENGL, &CMainFrame::OnSinkSelect)
 	ON_COMMAND(ID_OPTIONS_PREVIEW, &CMainFrame::OnPreview)
+	ON_COMMAND(ID_OPTIONS_SNAPSHOT, &CMainFrame::OnSnapshot)
 	ON_MESSAGE(WM_ON_RESIZE_WINDOW, &CMainFrame::OnResizeWindow)
 	ON_MESSAGE(WM_ON_OPENGL_WINDOW_CLOSE, &CMainFrame::OnOpenGlWindowClose)
 	ON_MESSAGE(WM_ON_PRINT_ANALYSIS_CHANGE_OPTS, &CMainFrame::OnPrintAnalysisChangeOpts)
@@ -43,6 +44,8 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWnd)
 	ON_COMMAND(ID_OPTIONS_SHOWFPS, &CMainFrame::OnShowFps)
 	ON_COMMAND(ID_MENU_PRINT_ANALYSIS_OPTS, &CMainFrame::OnPrintAnalysisOptions)
 	ON_MESSAGE(WM_ON_PRINT_ANALYSIS_NOT_FOUND, &CMainFrame::OnPrintAnalysisFilterNotFound)
+	ON_UPDATE_COMMAND_UI(ID_OPTIONS_SNAPSHOT, &CMainFrame::OnUpdateSnapshotToolbarBtn)
+	ON_UPDATE_COMMAND_UI(ID_OPTIONS_CAMERAPROPERTIES, &CMainFrame::OnUpdateCameraSettingsToolbarBtn)
 END_MESSAGE_MAP()
 
 static UINT indicators[] =
@@ -69,6 +72,8 @@ CMainFrame::CMainFrame() noexcept
 	if (FAILED(hr)) {
 	}
 
+	m_nToolbarBtnImageWidth = 20;
+	m_nToolbarBtnImageHeight = 20;
 }
 
 CMainFrame::~CMainFrame()
@@ -80,6 +85,32 @@ CMainFrame::~CMainFrame()
 		m_gstPlayer.StopPreview();
 
 	CoUninitialize();
+}
+
+void CMainFrame::AddToolbarButton(int nCommandId, int nResourceIdDefault, int nResourceIdPressed)
+{
+	ToolbarBtnPtr pToolbarBtn = std::make_shared<ToolbarBtn>();
+	HBITMAP hBmpDefault = CUtils::LoadPNGToHBITMAP(nResourceIdDefault, m_nToolbarBtnImageWidth, m_nToolbarBtnImageHeight);
+
+	pToolbarBtn->nCmdId = nCommandId;
+	pToolbarBtn->nImgIdxDefault = m_imgList.Add(CBitmap::FromHandle(hBmpDefault), RGB(0, 0, 0));
+
+	if (nResourceIdPressed != -1)
+	{
+		HBITMAP hBmpPressed = CUtils::LoadPNGToHBITMAP(nResourceIdPressed, m_nToolbarBtnImageWidth, m_nToolbarBtnImageHeight);
+		pToolbarBtn->nImgIdxPressed = m_imgList.Add(CBitmap::FromHandle(hBmpPressed), RGB(0, 0, 0));
+	}
+	
+	TBBUTTON tbb;
+	tbb.iBitmap = pToolbarBtn->nImgIdxDefault;
+	tbb.idCommand = nCommandId; // Replace with a valid command ID
+	tbb.fsState = TBSTATE_ENABLED;
+	tbb.fsStyle = TBSTYLE_BUTTON;
+	tbb.dwData = 0;
+	tbb.iString = -1;
+	
+	m_wndToolBar.GetToolBarCtrl().AddButtons(1, &tbb);
+	m_toolbarBtnList[nCommandId] = pToolbarBtn;
 }
 
 int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
@@ -94,7 +125,32 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		return -1;
 	}
 
-	m_wndView.SetGstPlayer(&m_gstPlayer);
+	if (!m_wndToolBar.CreateEx(this, TBSTYLE_FLAT, WS_CHILD | WS_VISIBLE | CBRS_TOP | CBRS_GRIPPER | CBRS_TOOLTIPS | CBRS_FLYBY | CBRS_SIZE_DYNAMIC))
+	{
+		TRACE0("Failed to create toolbar\n");
+		return -1;      // fail to create
+	}
+
+	CRect rcBorders(5, 5, 5, 5);
+	m_wndToolBar.SetBorders(rcBorders);
+
+	m_wndToolBar.EnableToolTips(TRUE);
+	
+	m_imgList.Create(m_nToolbarBtnImageWidth, m_nToolbarBtnImageHeight, ILC_COLOR32 | ILC_MASK, 5, 5); // 32-bit color
+
+	AddToolbarButton(ID_OPTIONS_PREVIEW, IDB_PNG_PREVIEW, IDB_PNG_PREVIEW_STOP);
+	AddToolbarButton(ID_OPTIONS_CAMERASETTINGS, IDB_PNG_VIDEO_SETTINGS);
+	AddToolbarButton(ID_OPTIONS_CAMERAPROPERTIES, IDB_PNG_CAMERA_SETTINGS);
+	AddToolbarButton(ID_MENU_PRINT_ANALYSIS_OPTS, IDB_PNG_PRINT_ANALYSIS);
+	AddToolbarButton(ID_OPTIONS_SNAPSHOT, IDB_PNG_SNAPSHOT);
+
+	// Set the toolbar image list to use the high-color images
+	m_wndToolBar.SendMessage(TB_SETIMAGELIST, 0, (LPARAM)m_imgList.Detach());
+	m_wndToolBar.SetSizes(CSize(m_nToolbarBtnImageWidth + 10, m_nToolbarBtnImageHeight + 9), CSize(m_nToolbarBtnImageWidth, m_nToolbarBtnImageHeight));
+
+	m_wndToolBar.EnableDocking(CBRS_ALIGN_ANY);
+	EnableDocking(CBRS_ALIGN_ANY);
+	DockControlBar(&m_wndToolBar);
 
 	if (!m_wndStatusBar.Create(this))
 	{
@@ -102,7 +158,7 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		return -1;      // fail to create
 	}
 	m_wndStatusBar.SetIndicators(indicators, sizeof(indicators)/sizeof(UINT));
-
+	
 	CMenu* pMenuSub = GetMenu()->GetSubMenu(ID_MENU_DEVICES);
 	int iMenuItems = pMenuSub->GetMenuItemCount();
 
@@ -132,11 +188,12 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 
 	m_strSink = g_gstSinks[ID_SINK_AUTO];
 	GetMenu()->GetSubMenu(ID_MENU_SINKS)->CheckMenuItem(ID_SINK_AUTO, MF_CHECKED);
+	GetMenu()->GetSubMenu(ID_MENU_OPTIONS)->EnableMenuItem(ID_OPTIONS_SNAPSHOT, MF_DISABLED);
 
 	m_deviceCapsList = m_gstPlayer.GetDeviceCaps(m_strSource, 0);
 	m_deviceCapsDlg.UpdateDeviceCaps(m_strSource, 0, m_deviceCapsList);
 
-	m_pDlgCamSettingsPropSheet = new CMFCPropertySheet("Camera Settings", this);
+	m_pDlgCamSettingsPropSheet = new CPropertySheet("Camera Settings", this);
 
 	return 0;
 }
@@ -216,6 +273,13 @@ void CMainFrame::OnSourceSelect(UINT id)
 	m_deviceCapsDlg.UpdateDeviceCaps(m_strSource, m_iSelectedCam, m_deviceCapsList);
 }
 
+void CMainFrame::ToggleToolbarButton(int nBtnCommandId)
+{
+	ToolbarBtnPtr pToolbarBtn = m_toolbarBtnList[nBtnCommandId];
+	m_wndToolBar.GetToolBarCtrl().ChangeBitmap(nBtnCommandId, pToolbarBtn->bToggleFlag ? pToolbarBtn->nImgIdxDefault : pToolbarBtn->nImgIdxPressed);
+	pToolbarBtn->bToggleFlag = !pToolbarBtn->bToggleFlag;
+}
+
 void CMainFrame::OnSinkSelect(UINT id)
 {
 	CMenu* pMenuSub = GetMenu()->GetSubMenu(ID_MENU_SINKS);
@@ -276,6 +340,8 @@ void CMainFrame::OnPreview()
 				", Format = " + pDeviceCaps->m_strFormat + ", Resolution = " + std::to_string(pResolution->m_iWidth) + "x" + std::to_string(pResolution->m_iHeight) +
 				", FPS = " + std::to_string(pFramerate->first) + "/" + std::to_string(pFramerate->second) + ")";
 			m_wndStatusBar.SetPaneText(ID_PANE_STATUS, strStatus.c_str());
+
+			ToggleToolbarButton(ID_OPTIONS_PREVIEW);
 		}
 	}
 	else
@@ -283,11 +349,13 @@ void CMainFrame::OnPreview()
 		m_gstPlayer.StopPreview();
 		m_bPreviewEnabled = FALSE;
 		m_wndStatusBar.SetPaneText(ID_PANE_STATUS, "Ready");
+		ToggleToolbarButton(ID_OPTIONS_PREVIEW);
 	}
 
 	pOptionsMenu->CheckMenuItem(ID_OPTIONS_PREVIEW, m_bPreviewEnabled ? MF_CHECKED : MF_UNCHECKED);
 	pOptionsMenu->EnableMenuItem(ID_OPTIONS_CAMERAPROPERTIES, m_bPreviewEnabled ? MF_DISABLED : MF_ENABLED);
 	pOptionsMenu->EnableMenuItem(ID_OPTIONS_SHOWFPS, m_bPreviewEnabled ? MF_DISABLED : MF_ENABLED);
+	pOptionsMenu->EnableMenuItem(ID_OPTIONS_SNAPSHOT, m_bPreviewEnabled ? MF_ENABLED : MF_DISABLED);
 	
 	EnableDisableMenuDevices();
 	EnableDisableMenuSources();
@@ -339,8 +407,14 @@ LRESULT CMainFrame::OnResizeWindow(WPARAM wParam, LPARAM lParam)
 		{
 			CRect statusBarRect;
 			m_wndStatusBar.GetWindowRect(&statusBarRect);
-			// Subtract the height of the status bar from the total height
 			desiredClientRect.bottom += statusBarRect.Height();
+		}
+
+		if (m_wndToolBar && m_wndToolBar.IsWindowVisible())
+		{
+			CRect toolBarRect;
+			m_wndToolBar.GetWindowRect(&toolBarRect);
+			desiredClientRect.bottom += toolBarRect.Height();
 		}
 
 		// Resize the frame window so that its client area is exactly 640x360
@@ -478,4 +552,48 @@ LRESULT CMainFrame::OnPrintAnalysisFilterNotFound(WPARAM wParam, LPARAM lParam)
 	pOptionsMenu->EnableMenuItem(ID_MENU_PRINT_ANALYSIS_OPTS, MF_DISABLED);
 
 	return 0;
+}
+
+void CMainFrame::OnSnapshot()
+{
+	CFileDialog dlg(FALSE, _T("jpg"), _T("snapshot"),
+		OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY,
+		_T("JPEG Files (*.jpeg;*.jpg)|*.jpeg;*.jpg|All Files (*.*)|*.*||"));
+
+	if (dlg.DoModal() == IDOK)
+	{
+		CString filePath = dlg.GetPathName();
+		BYTE* pBuffer = NULL;
+		int nSize, nWidth, nHeight;
+		std::string format;
+
+		if (m_gstPlayer.GetSnapshot(&pBuffer, nSize, nWidth, nHeight, format))
+		{
+			BOOL ret = FALSE;
+
+			if (format == "BGRx")
+				ret = CUtils::SaveBGRXToJPEG(pBuffer, nWidth, nHeight, CUtils::CStringToStdWString(filePath));
+			else if (format == "YUY2")
+				ret = CUtils::SaveYUY2ToJPEG(pBuffer, nWidth, nHeight, CUtils::CStringToStdWString(filePath));
+			else
+				MessageBox("Unsupported video format");
+
+			if (!ret)
+				MessageBox("Unable to save snapshot");
+		}
+		else
+		{
+			MessageBox("Failed to get snapshot");
+		}
+	}
+}
+
+void CMainFrame::OnUpdateSnapshotToolbarBtn(CCmdUI* pCmdUI)
+{
+	pCmdUI->Enable(m_bPreviewEnabled);
+}
+
+void CMainFrame::OnUpdateCameraSettingsToolbarBtn(CCmdUI* pCmdUI)
+{
+	pCmdUI->Enable(!m_bPreviewEnabled);
 }

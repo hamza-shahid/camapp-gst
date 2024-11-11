@@ -54,6 +54,9 @@
     <ClInclude Include="CameraSliderProperties.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Utils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="camapp-gst.cpp">
@@ -86,6 +89,9 @@
     <ClCompile Include="CameraSliderProperties.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Utils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="camappgst.rc">
@@ -99,6 +105,24 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\camapp-gst.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\preview.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\video-settings.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\camera_settings.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\analysis.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\preview-stop.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\snapshot.png">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>

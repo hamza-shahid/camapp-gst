@@ -5,6 +5,7 @@
 #include <vector>
 #include <thread>
 #include <unordered_map>
+#include <mutex>
 
 
 #define WM_ON_RESIZE_WINDOW (WM_USER + 1)
@@ -64,8 +65,18 @@ public:
 	HWND GetParentHwnd() { return m_hParent; }
 	void SetPrintAnalysisOpts(int nAnalysisType, int nGrayscaleType, int nBlackoutType, BOOL bConnectValues, int nAoiHeight, int nAoiPartitions);
 
+	BOOL GetSnapshot(BYTE** ppBuffer, int& nSize, int& nWidth, int& nHeight, std::string& format);
+
 private:
-	GstElement* AddElement(std::string strFactoryName, std::string name, std::string strPropertyName, void* pvProperty, GstElement** pElementOut, std::string& strError);
+	GstElement* AddElement(
+		std::string strFactoryName,
+		std::string name,
+		std::string strPropertyName,
+		void* pvProperty,
+		GstElement* pPrevElement,
+		GstElement** pElementOut,
+		std::string& strError);
+
 	BOOL CameraExists(std::string strCameraName);
 	void GstreamerPipelineRun();
 	void MonitorOpenGlWindow();
@@ -73,7 +84,9 @@ private:
 	void AddFramerateToResolution(ResolutionPtr pResolution, int iFramerateNum, int iFramerateDen);
 	DeviceCapsPtr ParseCapsStr(std::string strCaps);
 	void SetPrintAnalysisElementOpts();
+	void SetSnapshot(BYTE* pBuffer, int nSize, int nWidth, int nHeight, std::string format);
 
+	static GstPadProbeReturn BufferProbeCallback(GstPad* pPad, GstPadProbeInfo* pInfo, gpointer pUserData);
 	static void OnElementAddedToPipeline(GstBin* pBin, GstElement* pElement, gpointer pUserData);
 	static LRESULT CALLBACK NewOpenGlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -102,6 +115,16 @@ private:
 	BOOL m_bConnectValues;
 	int m_nAoiHeight;
 	int m_nAoiPartitions;
+
+	// snapshot related stuff
+	BOOL					m_bSnapshotFlag;
+	std::mutex				m_mtxSnapshot;
+	std::condition_variable m_cvSnapshot;
+	std::string				m_snapshotFormat;
+	BYTE*					m_pSnapshotBuffer;
+	int						m_nSnapshotSize;
+	int						m_nSnapshotWidth;
+	int						m_nSnapshotHeight;
 };
 
 extern GstResource g_gstSources;

@@ -41,6 +41,7 @@ std::string GetExecutableFolderPath()
 }
 
 CGstPlayer::CGstPlayer()
+	: m_pSnapshotBuffer(NULL)
 {
 	int argc = 0;
 	char** argv = NULL;
@@ -57,6 +58,12 @@ CGstPlayer::CGstPlayer()
 
 CGstPlayer::~CGstPlayer()
 {
+	if (m_pSnapshotBuffer)
+	{
+		delete[] m_pSnapshotBuffer;
+		m_pSnapshotBuffer = NULL;
+	}
+
 	gst_plugin_feature_list_free(m_pDevices);
 	gst_deinit();
 }
@@ -113,9 +120,13 @@ void CGstPlayer::OnElementAddedToPipeline(GstBin* pBin, GstElement* pElement, gp
 }
 
 GstElement* CGstPlayer::AddElement(
-	std::string strFactoryName, std::string name, 
-	std::string strPropertyName, void* pvProperty, 
-	GstElement** pElementOut, std::string& strError)
+	std::string strFactoryName,
+	std::string name,
+	std::string strPropertyName,
+	void* pvProperty,
+	GstElement* pPrevElement,
+	GstElement** pElementOut,
+	std::string& strError)
 {
 	strError = "";
 
@@ -136,9 +147,10 @@ GstElement* CGstPlayer::AddElement(
 		return NULL;
 	}
 
-	if (m_elementList.size())
+	//if (m_elementList.size())
+	if (pPrevElement)
 	{
-		if (!gst_element_link(m_elementList.back(), pElement))
+		if (!gst_element_link(pPrevElement, pElement))
 		{
 			strError = "Unable to link " + strFactoryName + " element";
 			return NULL;
@@ -153,25 +165,62 @@ GstElement* CGstPlayer::AddElement(
 	return pElement;
 }
 
-#define ADD_ELEMENT_WITH_ERR_CHECK(strFactoryName, name, strPropertyName, pvProperty, pElemOut, strError)	\
-	{																										\
-		AddElement(strFactoryName, name, strPropertyName, pvProperty, pElemOut, strError);					\
-		if (strError.size())																				\
-		{																									\
-			gst_object_unref(m_pPipeline);																	\
-			m_pPipeline = NULL;																				\
-			return FALSE;																					\
-		}																									\
+GstPadProbeReturn CGstPlayer::BufferProbeCallback(GstPad* pPad, GstPadProbeInfo* pInfo, gpointer pUserData)
+{
+	if (pInfo->type & GST_PAD_PROBE_TYPE_BUFFER)
+	{
+		GstBuffer* pBuffer = GST_PAD_PROBE_INFO_BUFFER(pInfo);
+		int nWidth = 0, nHeight = 0;
+		const gchar* pFormat = NULL;
+
+		// Get the caps (capabilities) of the pad to access video metadata
+		GstCaps* caps = gst_pad_get_current_caps(pPad);
+		if (caps)
+		{
+			GstStructure* structure = gst_caps_get_structure(caps, 0);
+
+			pFormat = gst_structure_get_string(structure, "format");
+			gst_structure_get_int(structure, "width", &nWidth);
+			gst_structure_get_int(structure, "height", &nHeight);
+			gst_caps_unref(caps);  // Release the caps after accessing them
+		}
+
+		// Map the buffer to access its data
+		GstMapInfo map;
+		if (gst_buffer_map(pBuffer, &map, GST_MAP_READ))
+		{
+			CGstPlayer* pGstPlayer = (CGstPlayer *) pUserData;
+
+			pGstPlayer->SetSnapshot(map.data, map.size, nWidth, nHeight, pFormat);
+			gst_buffer_unmap(pBuffer, &map);
+		}
+	}
+	return GST_PAD_PROBE_OK;
+}
+
+#define ADD_ELEMENT_WITH_ERR_CHECK(strFactoryName, name, strPropertyName, pvProperty, pPrevElement, pElemOut, strError)	\
+	{																													\
+		AddElement(strFactoryName, name, strPropertyName, pvProperty, pPrevElement, pElemOut, strError);				\
+		if (strError.size())																							\
+		{																												\
+			gst_object_unref(m_pPipeline);																				\
+			m_pPipeline = NULL;																							\
+			return FALSE;																								\
+		}																												\
 	}
 
 BOOL CGstPlayer::StartPreview(std::string strSource, int iDeviceIndex, std::string strSink, std::string strMediaType, std::string strFormat, int iWidth, int iHeight, FractionPtr framerate, BOOL bShowFps, std::string& strError, HWND hVideoWindow)
 {
+	GstElement* pPrevElement = NULL;
+
 	m_elementList.clear();
 	m_hVideoWindow = hVideoWindow;
 	m_strSink = strSink;
 	m_pPipeline = gst_pipeline_new("video-display");
 
-	ADD_ELEMENT_WITH_ERR_CHECK(strSource, "source", "device-name", gst_device_get_display_name(m_CameraList[iDeviceIndex]), &m_pSource, strError);
+	ADD_ELEMENT_WITH_ERR_CHECK(strSource, "source", "device-name", gst_device_get_display_name(m_CameraList[iDeviceIndex]), pPrevElement, &pPrevElement, strError);
+
+	m_pSource = pPrevElement;
 
 	GstCaps* pSourceCaps = gst_caps_new_simple(
 		strMediaType.c_str(),
@@ -183,38 +232,42 @@ BOOL CGstPlayer::StartPreview(std::string strSource, int iDeviceIndex, std::stri
 	if (strMediaType == "video/x-raw")
 		gst_caps_set_simple(pSourceCaps, "format", G_TYPE_STRING, strFormat.c_str(), NULL);
 
-	ADD_ELEMENT_WITH_ERR_CHECK("capsfilter", "source-capsfilter", "caps", pSourceCaps, NULL, strError);
+	ADD_ELEMENT_WITH_ERR_CHECK("capsfilter", "source-capsfilter", "caps", pSourceCaps, pPrevElement, &pPrevElement, strError);
 
 	if (strMediaType == "image/jpeg")
-		ADD_ELEMENT_WITH_ERR_CHECK("jpegdec", "mjpeg-decoder", "", NULL, NULL, strError);
+		ADD_ELEMENT_WITH_ERR_CHECK("jpegdec", "mjpeg-decoder", "", NULL, pPrevElement, &pPrevElement, strError);
 
 	if (strMediaType == "image/jpeg" || (strMediaType == "video/x-raw" && strFormat != "YUY2"))
 	{
-		ADD_ELEMENT_WITH_ERR_CHECK("videoconvert", "video-convert", "", NULL, NULL, strError);
+		ADD_ELEMENT_WITH_ERR_CHECK("videoconvert", "video-convert", "", NULL, pPrevElement, &pPrevElement, strError);
 		
 		GstCaps* pVideoConvertCaps = gst_caps_new_simple(
 			"video/x-raw",
 			"format", G_TYPE_STRING, "BGRx",
 			NULL);
 
-		ADD_ELEMENT_WITH_ERR_CHECK("capsfilter", "video-convert-caps-filter", "caps", pVideoConvertCaps, NULL, strError);
+		ADD_ELEMENT_WITH_ERR_CHECK("capsfilter", "video-convert-caps-filter", "caps", pVideoConvertCaps, pPrevElement, &pPrevElement, strError);
 
 		gst_caps_unref(pVideoConvertCaps);
 	}
 
 	if (m_bPrintAnalysisFilter)
 	{
-		ADD_ELEMENT_WITH_ERR_CHECK("printanalysis", "print-analysis", "", NULL, &m_pPrintAnalysis, strError);
+		ADD_ELEMENT_WITH_ERR_CHECK("printanalysis", "print-analysis", "", NULL, pPrevElement, &pPrevElement, strError);
+		m_pPrintAnalysis = pPrevElement;
 		SetPrintAnalysisElementOpts();
 	}
 
 	if (bShowFps)
 	{
 		m_pSink = gst_element_factory_make(strSink.c_str(), NULL);
-		ADD_ELEMENT_WITH_ERR_CHECK("fpsdisplaysink", "sink", "video-sink", m_pSink, NULL, strError);
+		ADD_ELEMENT_WITH_ERR_CHECK("fpsdisplaysink", "sink", "video-sink", m_pSink, pPrevElement, &pPrevElement, strError);
 	}
 	else
-		ADD_ELEMENT_WITH_ERR_CHECK(strSink.c_str(), "sink", "", NULL, &m_pSink, strError);
+	{
+		ADD_ELEMENT_WITH_ERR_CHECK(strSink.c_str(), "sink", "", NULL, pPrevElement, &pPrevElement, strError);
+		m_pSink = pPrevElement;
+	}
 	
 	if (strSink != g_gstSinks[ID_SINK_OPENGL])
 	{
@@ -229,6 +282,18 @@ BOOL CGstPlayer::StartPreview(std::string strSource, int iDeviceIndex, std::stri
 			}
 		}
 	}
+
+	// Get the sink pad of your custom transform element
+	GstPad* pSinkPad = gst_element_get_static_pad(m_pPrintAnalysis, "sink");
+	if (!pSinkPad)
+	{
+		strError = "Failed to get sink pad from print analysis filter";
+		return FALSE;
+	}
+
+	// Add the buffer probe to intercept frames
+	gst_pad_add_probe(pSinkPad, GST_PAD_PROBE_TYPE_BUFFER, BufferProbeCallback, this, NULL);
+	gst_object_unref(pSinkPad);  // Release the pad after adding the probe
 
 	gst_element_set_state(m_pPipeline, GST_STATE_PLAYING);
 
@@ -595,4 +660,57 @@ void CGstPlayer::SetPrintAnalysisElementOpts()
 		g_object_set(G_OBJECT(m_pPrintAnalysis), "aoi-height", m_nAoiHeight, NULL);
 		g_object_set(G_OBJECT(m_pPrintAnalysis), "aoi-partitions", m_nAoiPartitions, NULL);
 	}
+}
+
+BOOL CGstPlayer::GetSnapshot(BYTE** ppBuffer, int& nSize, int& nWidth, int& nHeight, std::string& format)
+{
+	{
+		std::lock_guard<std::mutex> lock(m_mtxSnapshot);
+		m_bSnapshotFlag = TRUE;
+	}
+
+	std::unique_lock<std::mutex> lock(m_mtxSnapshot);
+	if (m_cvSnapshot.wait_for(lock, std::chrono::seconds(5), [this] { return !m_bSnapshotFlag; })) 
+	{
+		*ppBuffer = m_pSnapshotBuffer;
+		nSize = m_nSnapshotSize;
+		nWidth = m_nSnapshotWidth;
+		nHeight = m_nSnapshotHeight;
+		format = m_snapshotFormat;
+		return TRUE;
+	}
+	else {
+		// timeout occurred
+		*ppBuffer = NULL;
+		nSize = 0;
+		nWidth = 0;
+		nHeight = 0;
+		return FALSE;
+	}
+}
+
+void CGstPlayer::SetSnapshot(BYTE* pBuffer, int nSize, int nWidth, int nHeight, std::string format)
+{
+	std::lock_guard<std::mutex> lock(m_mtxSnapshot);
+
+	if (m_bSnapshotFlag)
+	{
+		if (m_pSnapshotBuffer)
+		{
+			delete m_pSnapshotBuffer;
+			m_pSnapshotBuffer = NULL;
+		}
+
+		m_pSnapshotBuffer = new BYTE[nSize];
+		memcpy(m_pSnapshotBuffer, pBuffer, nSize);
+
+		m_nSnapshotSize = nSize;
+		m_nSnapshotWidth = nWidth;
+		m_nSnapshotHeight = nHeight;
+		m_snapshotFormat = format;
+		m_bSnapshotFlag = FALSE;
+		m_cvSnapshot.notify_one();
+	}
+	else
+		return;
 }
