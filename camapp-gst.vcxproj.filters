@@ -125,5 +125,11 @@
     <Image Include="res\snapshot.png">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="res\fps-logo.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\fps-logo-off.png">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

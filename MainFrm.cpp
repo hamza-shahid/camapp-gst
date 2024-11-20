@@ -46,6 +46,7 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWnd)
 	ON_MESSAGE(WM_ON_PRINT_ANALYSIS_NOT_FOUND, &CMainFrame::OnPrintAnalysisFilterNotFound)
 	ON_UPDATE_COMMAND_UI(ID_OPTIONS_SNAPSHOT, &CMainFrame::OnUpdateSnapshotToolbarBtn)
 	ON_UPDATE_COMMAND_UI(ID_OPTIONS_CAMERAPROPERTIES, &CMainFrame::OnUpdateCameraSettingsToolbarBtn)
+	ON_UPDATE_COMMAND_UI(ID_OPTIONS_SHOWFPS, &CMainFrame::OnUpdateFpsToolbarBtn)
 END_MESSAGE_MAP()
 
 static UINT indicators[] =
@@ -131,18 +132,16 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		return -1;      // fail to create
 	}
 
-	CRect rcBorders(5, 5, 5, 5);
-	m_wndToolBar.SetBorders(rcBorders);
-
 	m_wndToolBar.EnableToolTips(TRUE);
 	
-	m_imgList.Create(m_nToolbarBtnImageWidth, m_nToolbarBtnImageHeight, ILC_COLOR32 | ILC_MASK, 5, 5); // 32-bit color
+	m_imgList.Create(m_nToolbarBtnImageWidth, m_nToolbarBtnImageHeight, ILC_COLOR32 | ILC_MASK, 6, 10);
 
 	AddToolbarButton(ID_OPTIONS_PREVIEW, IDB_PNG_PREVIEW, IDB_PNG_PREVIEW_STOP);
 	AddToolbarButton(ID_OPTIONS_CAMERASETTINGS, IDB_PNG_VIDEO_SETTINGS);
 	AddToolbarButton(ID_OPTIONS_CAMERAPROPERTIES, IDB_PNG_CAMERA_SETTINGS);
 	AddToolbarButton(ID_MENU_PRINT_ANALYSIS_OPTS, IDB_PNG_PRINT_ANALYSIS);
 	AddToolbarButton(ID_OPTIONS_SNAPSHOT, IDB_PNG_SNAPSHOT);
+	AddToolbarButton(ID_OPTIONS_SHOWFPS, IDB_PNG_FPS, IDB_PNG_FPS_OFF);
 
 	// Set the toolbar image list to use the high-color images
 	m_wndToolBar.SendMessage(TB_SETIMAGELIST, 0, (LPARAM)m_imgList.Detach());
@@ -539,6 +538,7 @@ void CMainFrame::OnShowFps()
 
 	CMenu* pOptionsMenu = GetMenu()->GetSubMenu(ID_MENU_OPTIONS);
 	pOptionsMenu->CheckMenuItem(ID_OPTIONS_SHOWFPS, m_bShowFps ? MF_CHECKED : MF_UNCHECKED);
+	ToggleToolbarButton(ID_OPTIONS_SHOWFPS);
 }
 
 void CMainFrame::OnPrintAnalysisOptions()
@@ -594,6 +594,11 @@ void CMainFrame::OnUpdateSnapshotToolbarBtn(CCmdUI* pCmdUI)
 }
 
 void CMainFrame::OnUpdateCameraSettingsToolbarBtn(CCmdUI* pCmdUI)
+{
+	pCmdUI->Enable(!m_bPreviewEnabled);
+}
+
+void CMainFrame::OnUpdateFpsToolbarBtn(CCmdUI* pCmdUI)
 {
 	pCmdUI->Enable(!m_bPreviewEnabled);
 }

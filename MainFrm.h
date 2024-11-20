@@ -109,6 +109,7 @@ protected:
 	afx_msg void OnCameraSettings();
 	afx_msg void OnUpdateSnapshotToolbarBtn(CCmdUI* pCmdUI);
 	afx_msg void OnUpdateCameraSettingsToolbarBtn(CCmdUI* pCmdUI);
+	afx_msg void OnUpdateFpsToolbarBtn(CCmdUI* pCmdUI);
 	DECLARE_MESSAGE_MAP()
 
 };
