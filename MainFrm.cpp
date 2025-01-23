@@ -25,6 +25,7 @@
 #define ID_MENU_BARCODE					5
 
 
+#define AOI_TOTAL_TIMER_ID 4096
 // CMainFrame
 
 IMPLEMENT_DYNAMIC(CMainFrame, CFrameWndEx)
@@ -57,6 +58,7 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWndEx)
 	ON_COMMAND(ID_BARCODE_TYPES, &CMainFrame::OnBarcodeTypesToScan)
 	ON_MESSAGE(WM_ON_BARCODE_FOUND, &CMainFrame::OnBarcodeFound)
 	ON_COMMAND(ID_OCR_RUN_OCR, &CMainFrame::OnRunOCR)
+	ON_WM_TIMER()
 END_MESSAGE_MAP()
 
 static UINT indicators[] =
@@ -99,6 +101,8 @@ CMainFrame::~CMainFrame()
 		m_gstPlayer.StopPreview();
 
 	CoUninitialize();
+
+	KillTimer(AOI_TOTAL_TIMER_ID);
 }
 
 void CMainFrame::AddToolbarButton(int nCommandId, int nResourceIdDefault, int nResourceIdPressed, CString strBtnText)
@@ -238,6 +242,8 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	CMFCVisualManager::SetDefaultManager(RUNTIME_CLASS(CMFCVisualManagerVS2008));
 	CDockingManager::SetDockingMode(DT_SMART);
 	RedrawWindow(nullptr, nullptr, RDW_ALLCHILDREN | RDW_INVALIDATE | RDW_UPDATENOW | RDW_FRAME | RDW_ERASE);
+
+	SetTimer(AOI_TOTAL_TIMER_ID, 1000, nullptr);
 
 	return 0;
 }
@@ -717,17 +723,22 @@ void CMainFrame::OnBarcodeTypesToScan()
 LRESULT CMainFrame::OnBarcodeFound(WPARAM wParam, LPARAM lParam)
 {
 	BarcodeList* pBarcodeList = (BarcodeList*) lParam;
-	BOOL bRet = CUtils::DeleteRegistryEntryTree("Barcodes");
+	CString appName;
+
+	appName.LoadString(AFX_IDS_APP_TITLE);
+	std::string subKey = std::string("Software\\") + appName.GetBuffer() + "\\Barcodes";
+
+	BOOL bRet = CUtils::DeleteRegistryEntryTree(HKEY_LOCAL_MACHINE, subKey);
 	int nBarcodeIdx = 0;
 
 	for (BarcodeInfoPtr pBarcodeInfo : *pBarcodeList)
 	{
-		std::string subKey = "Barcodes\\" + std::to_string(nBarcodeIdx);
+		std::string subSubKey = subKey + "\\" + std::to_string(nBarcodeIdx);
 
 		m_wndOutputPane.AppendOutput(pBarcodeInfo->barcode, pBarcodeInfo->format);
 		
-		bRet = CUtils::WriteToRegistry(subKey, "Barcode", pBarcodeInfo->barcode);
-		bRet = CUtils::WriteToRegistry(subKey, "Format", pBarcodeInfo->format);
+		bRet = CUtils::WriteToRegistry(HKEY_LOCAL_MACHINE, subSubKey, "Barcode", pBarcodeInfo->barcode);
+		bRet = CUtils::WriteToRegistry(HKEY_LOCAL_MACHINE, subSubKey, "Format", pBarcodeInfo->format);
 
 		nBarcodeIdx++;
 	}
@@ -746,3 +757,17 @@ VOID CMainFrame::OnRunOCR()
 {
 
 }
+
+void CMainFrame::OnTimer(UINT_PTR nIDEvent)
+{
+	if (nIDEvent == AOI_TOTAL_TIMER_ID)
+	{
+		if (m_bPreviewEnabled)
+			m_gstPlayer.ReadPrintPartitionsFromReg();
+	}
+	else
+	{
+		CMainFrame::OnTimer(nIDEvent); // Call the base class
+	}
+}
+

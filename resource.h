@@ -40,7 +40,6 @@
 #define IDB_PNG2                        345
 #define IDB_PNG_BARCODE_FORMATS         345
 #define IDR_BARCODE_OUTPUT_POPUP        346
-#define IDB_PNG1                        347
 #define IDB_PNG_OCR                     347
 #define IDC_FORMAT                      1001
 #define IDC_STATIC_FORMAT               1002
@@ -116,7 +115,8 @@
 #define IDC_RADIO_INTENSITY             2002
 #define IDC_RADIO_MEAN                  2003
 #define IDC_RADIO_HISTOGRAM             2004
-#define IDC_RADIO_ANALYSIS_NONE         2005
+#define IDC_RADIO_ANALYSIS_TOTAL        2005
+#define IDC_RADIO_ANALYSIS_NONE         2006
 #define IDC_CHECK_BRIGHTNESS            2010
 #define IDC_CHECK_CONTRAST              2011
 #define IDC_CHECK_HUE                   2012

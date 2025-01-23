@@ -229,17 +229,12 @@ std::string CUtils::GetFormattedTime()
     return formattedTime.GetBuffer();
 }
 
-BOOL CUtils::WriteToRegistry(std::string subKey, std::string regKey, std::string regValue)
+BOOL CUtils::WriteToRegistry(HKEY hKey, std::string subKey, std::string regKey, std::string regValue)
 {
-    CString appName;
-    HKEY hKey;
     LONG lResult;
 
-    appName.LoadString(AFX_IDS_APP_TITLE);
-    subKey = std::string("Software\\") + appName.GetBuffer() + "\\" + subKey;
-
     // Create or open the key
-    lResult = RegCreateKeyEx(HKEY_CURRENT_USER, subKey.c_str(), 0, NULL,
+    lResult = RegCreateKeyEx(hKey, subKey.c_str(), 0, NULL,
         REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hKey, NULL);
     
     if (lResult == ERROR_SUCCESS)
@@ -258,20 +253,90 @@ BOOL CUtils::WriteToRegistry(std::string subKey, std::string regKey, std::string
     return TRUE;
 }
 
-BOOL CUtils::DeleteRegistryEntryTree(std::string subKey)
+BOOL CUtils::WriteToRegistry(HKEY hKey, std::string subKey, std::string regKey, DWORD regValue)
 {
-    CString appName;
     LONG lResult;
 
-    appName.LoadString(AFX_IDS_APP_TITLE);
-    subKey = std::string("Software\\") + appName.GetBuffer() + "\\" + subKey;
+    // Create or open the key
+    lResult = RegCreateKeyEx(hKey, subKey.c_str(), 0, NULL,
+        REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hKey, NULL);
+
+    if (lResult == ERROR_SUCCESS)
+    {
+        lResult = RegSetValueEx(hKey, regKey.c_str(), 0, REG_DWORD, (const PBYTE) &regValue, sizeof(DWORD));
+        if (lResult != ERROR_SUCCESS)
+            return FALSE;
+
+        RegCloseKey(hKey);
+    }
+    else
+    {
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+BOOL CUtils::DeleteRegistryEntryTree(HKEY hKey, std::string subKey)
+{
+    LONG lResult;
 
     // Delete the key and its subkeys
-    lResult = RegDeleteTree(HKEY_CURRENT_USER, subKey.c_str());
+    lResult = RegDeleteTree(hKey, subKey.c_str());
     if (lResult == ERROR_SUCCESS)
         return TRUE;
     else if (lResult == ERROR_FILE_NOT_FOUND)
         return FALSE;
     else
         return FALSE;
+}
+
+LONG CUtils::ReadStringFromRegistry(HKEY hKey, std::string subKey, std::string regKey, std::string& regValue)
+{
+    DWORD dwType = 0;
+    BYTE pbData[256] = { 0 };
+    DWORD dwSize = sizeof(pbData);
+
+    LONG lResult = ReadFromRegistry(hKey, subKey, regKey, dwType, pbData, dwSize);
+    if (lResult != ERROR_SUCCESS)
+        return lResult;
+
+    if (dwType != REG_SZ)
+        return ERROR_INVALID_DATA;
+
+    regValue = (char*)pbData;
+
+    return ERROR_SUCCESS;
+}
+
+LONG CUtils::ReadDwordFromRegistry(HKEY hKey, std::string subKey, std::string regKey, DWORD& regValue)
+{
+    DWORD dwType = 0;
+    DWORD dwSize = sizeof(DWORD);
+
+    LONG lResult = ReadFromRegistry(hKey, subKey, regKey, dwType, (byte*) &regValue, dwSize);
+    if (lResult != ERROR_SUCCESS)
+        return lResult;
+
+    if (dwType != REG_DWORD)
+        return ERROR_INVALID_DATA;
+
+    return ERROR_SUCCESS;
+}
+
+LONG CUtils::ReadFromRegistry(HKEY hKey, std::string subKey, std::string regKey, DWORD& dwType, BYTE* pbData, DWORD& dwSize)
+{
+    LONG lResult;
+    
+    // Open the registry key
+    lResult = RegOpenKeyEx(hKey, subKey.c_str(), 0, KEY_READ, &hKey);
+    if (lResult != ERROR_SUCCESS)
+    {
+        return lResult;
+    }
+
+    lResult = RegQueryValueEx(hKey, regKey.c_str(), NULL, &dwType, pbData, &dwSize);
+    RegCloseKey(hKey);
+    
+    return lResult;
 }

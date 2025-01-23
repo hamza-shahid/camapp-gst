@@ -124,6 +124,7 @@ protected:
 	afx_msg void OnBarcodeTypesToScan();
 	afx_msg LRESULT OnBarcodeFound(WPARAM wParam, LPARAM lParam);
 	afx_msg VOID OnRunOCR();
+	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	
 	DECLARE_MESSAGE_MAP()
 

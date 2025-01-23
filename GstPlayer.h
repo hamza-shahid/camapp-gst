@@ -75,6 +75,12 @@ public:
 	StringList GetDeviceNames();
 	DeviceCapsListPtr GetDeviceCaps(std::string strSource, int iDeviceIndex);
 	HWND GetParentHwnd() { return m_hParent; }
+	
+	static LONG CheckPartitionsReadyFlag(BOOL &bReady);
+	static BOOL SetPartitionsReadyFlag();
+	
+	void ReadPrintPartitionsFromReg();
+	void WritePrintPartitionsTotalToReg(const char* pJsonStr);
 	void SetPrintAnalysisOpts(int nAnalysisType, int nGrayscaleType, int nBlackoutType, BOOL bConnectValues, int nAoiHeight, int nAoiPartitions);
 
 	BOOL GetSnapshot(BYTE** ppBuffer, int& nSize, int& nWidth, int& nHeight, std::string& format);
@@ -104,6 +110,7 @@ private:
 	void SendBarcode(BarcodeList* pBarcodeList);
 
 	static void OnBarcodesReceived(GstElement* pBarcodeReader, GArray* pArray, gpointer pUserData);
+	static void OnAoiTotalReceived(GstElement* pBarcodeReader, const gchar* pAoiTotal, gpointer pUserData);
 	static GstPadProbeReturn BufferProbeCallback(GstPad* pPad, GstPadProbeInfo* pInfo, gpointer pUserData);
 	static void OnElementAddedToPipeline(GstBin* pBin, GstElement* pElement, gpointer pUserData);
 	static LRESULT CALLBACK NewOpenGlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);

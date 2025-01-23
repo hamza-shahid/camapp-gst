@@ -2,12 +2,17 @@
 #include "GstPlayer.h"
 #include "resource.h"
 #include "BarcodeFormat.h"
+#include "Utils.h"
 
 #include <gst/video/videooverlay.h>
 #include <functional>
 #include <sstream>
 #include <algorithm>
+#include <cjson/cJSON.h>
 
+
+#define PRINT_ANALYSIS_REG_HKEY			HKEY_LOCAL_MACHINE
+#define PRINT_ANALYSIS_REG_SUB_KEY		"Software\\Neuralog\\NeuraQService\\VIS"
 
 WNDPROC CGstPlayer::m_origOpenGlWndProc = NULL;
 
@@ -206,6 +211,13 @@ GstPadProbeReturn CGstPlayer::BufferProbeCallback(GstPad* pPad, GstPadProbeInfo*
 	return GST_PAD_PROBE_OK;
 }
 
+void CGstPlayer::OnAoiTotalReceived(GstElement* pBarcodeReader, const gchar* pAoiTotal, gpointer pUserData)
+{
+	CGstPlayer* pGstPlayer = (CGstPlayer*)pUserData;
+
+	pGstPlayer->WritePrintPartitionsTotalToReg(pAoiTotal);
+}
+
 void CGstPlayer::OnBarcodesReceived(GstElement* pBarcodeReader, GArray* pArray, gpointer pUserData)
 {
 	CGstPlayer* pGstPlayer = (CGstPlayer*) pUserData;
@@ -305,6 +317,8 @@ BOOL CGstPlayer::StartPreview(std::string strSource, int iDeviceIndex, std::stri
 		ADD_ELEMENT_WITH_ERR_CHECK("printanalysis", "print-analysis", "", NULL, pPrevElement, &pPrevElement, strError);
 		m_pPrintAnalysis = pPrevElement;
 		SetPrintAnalysisElementOpts();
+
+		g_signal_connect(G_OBJECT(m_pPrintAnalysis), "aoi-total-signal", G_CALLBACK(OnAoiTotalReceived), this);
 	}
 
 	if (bShowFps)
@@ -781,4 +795,125 @@ void CGstPlayer::SetBarcodeFormats(UINT uBarcodeFormats)
 
 	if (m_pBarcodeReader)
 		g_object_set(G_OBJECT(m_pBarcodeReader), "barcode-formats", uBarcodeFormats, NULL);
+}
+
+LONG CGstPlayer::CheckPartitionsReadyFlag(BOOL& bReady)
+{
+	return CUtils::ReadDwordFromRegistry(PRINT_ANALYSIS_REG_HKEY, PRINT_ANALYSIS_REG_SUB_KEY, "ready", (DWORD&) bReady);
+}
+
+BOOL CGstPlayer::SetPartitionsReadyFlag()
+{
+	return CUtils::WriteToRegistry(PRINT_ANALYSIS_REG_HKEY, PRINT_ANALYSIS_REG_SUB_KEY, "ready", TRUE);
+}
+
+void CGstPlayer::ReadPrintPartitionsFromReg()
+{
+	char* pJsonStr = NULL;
+	int idx = 0;
+	BOOL bReady = TRUE;		// true means it's not ready
+	LONG lResult = CheckPartitionsReadyFlag(bReady);
+
+	// if ready flag is 0 then read the partitions
+	if (lResult == ERROR_SUCCESS && !bReady)
+	{
+		cJSON* root = cJSON_CreateObject();
+
+		if (!root)
+			return;
+
+		// Create an array for partitions
+		cJSON* pPartitions = cJSON_CreateArray();
+		if (!pPartitions)
+		{
+			cJSON_Delete(root);
+			return;
+		}
+
+		// Add partitions array to the root object
+		cJSON_AddItemToObject(root, "partitions", pPartitions);
+
+		do
+		{
+			std::string subKey = PRINT_ANALYSIS_REG_SUB_KEY + std::string("\\") + std::to_string(idx);
+			std::string center, dimensions;
+			int x, y, width, height;
+			DWORD id;
+
+			lResult = CUtils::ReadDwordFromRegistry(PRINT_ANALYSIS_REG_HKEY, subKey, "id", id);
+			if (lResult != ERROR_SUCCESS)
+				break;
+
+			lResult = CUtils::ReadStringFromRegistry(PRINT_ANALYSIS_REG_HKEY, subKey, "center", center);
+			if (lResult != ERROR_SUCCESS)
+				break;
+
+			lResult = CUtils::ReadStringFromRegistry(PRINT_ANALYSIS_REG_HKEY, subKey, "dimensions", dimensions);
+			if (lResult != ERROR_SUCCESS)
+				break;
+
+			sscanf_s(center.c_str(), "%d,%d", &x, &y);
+			sscanf_s(dimensions.c_str(), "%dx%d", &width, &height);
+
+			cJSON* pPartition = cJSON_CreateObject();
+			if (!pPartition)
+				continue;
+
+			// Add fields to the partition object
+			cJSON_AddNumberToObject(pPartition, "id", id);
+			cJSON_AddNumberToObject(pPartition, "center_x", x);
+			cJSON_AddNumberToObject(pPartition, "center_y", y);
+			cJSON_AddNumberToObject(pPartition, "width", width);
+			cJSON_AddNumberToObject(pPartition, "height", height);
+
+			// Add the partition to the array
+			cJSON_AddItemToArray(pPartitions, pPartition);
+
+			idx++;
+		} while (lResult == ERROR_SUCCESS);
+
+		// Convert the root JSON object to a string
+		pJsonStr = cJSON_Print(root);
+		cJSON_Delete(root);
+
+		if (m_pPrintAnalysis)
+		{
+			g_object_set(G_OBJECT(m_pPrintAnalysis), "analysis-type", IDC_RADIO_ANALYSIS_TOTAL - IDC_RADIO_INTENSITY, NULL);
+			g_object_set(G_OBJECT(m_pPrintAnalysis), "partitions-json", pJsonStr, NULL);
+		}
+	}
+}
+
+void CGstPlayer::WritePrintPartitionsTotalToReg(const char* pJsonStr)
+{
+	cJSON* pJson = cJSON_Parse(pJsonStr);
+	if (pJson == NULL)
+		return;
+
+	// Get "partitions" array
+	cJSON* pPartitions = cJSON_GetObjectItem(pJson, "partitions");
+	if (!cJSON_IsArray(pPartitions))
+	{
+		cJSON_Delete(pJson);
+		return;
+	}
+
+	// Iterate through the array
+	int nPartitions = cJSON_GetArraySize(pPartitions);
+
+	for (int i = 0; i < nPartitions; i++)
+	{
+		cJSON* partition = cJSON_GetArrayItem(pPartitions, i);
+
+		// Extract values from each partition
+		int id = cJSON_GetObjectItem(partition, "id")->valueint;
+		std::string totalStr = cJSON_GetObjectItem(partition, "total")->valuestring;
+		std::string subKey = PRINT_ANALYSIS_REG_SUB_KEY + std::string("\\") + std::to_string(id);
+		
+		BOOL bResult = CUtils::WriteToRegistry(PRINT_ANALYSIS_REG_HKEY, subKey, "total", totalStr);
+	}
+
+	// Clean up
+	cJSON_Delete(pJson);
+	SetPartitionsReadyFlag();
 }

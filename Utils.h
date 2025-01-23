@@ -22,8 +22,12 @@ public:
 
 	static std::string GetFormattedTime();
 
-	static BOOL WriteToRegistry(std::string subKey, std::string regKey, std::string regValue);
-	static BOOL DeleteRegistryEntryTree(std::string subKey);
+	static BOOL WriteToRegistry(HKEY hKey, std::string subKey, std::string regKey, std::string regValue);
+	static BOOL WriteToRegistry(HKEY hKey, std::string subKey, std::string regKey, DWORD regValue);
+	static BOOL DeleteRegistryEntryTree(HKEY hKey, std::string subKey);
+	static LONG ReadFromRegistry(HKEY hKey, std::string subKey, std::string regKey, DWORD& dwType, BYTE* pbData, DWORD& dwSize);
+	static LONG ReadStringFromRegistry(HKEY hKey, std::string subKey, std::string regKey, std::string& regValue);
+	static LONG ReadDwordFromRegistry(HKEY hKey, std::string subKey, std::string regKey, DWORD& regValue);
 
 private:
 	static ULONG_PTR m_pGiplusToken;
