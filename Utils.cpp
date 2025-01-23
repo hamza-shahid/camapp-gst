@@ -178,6 +178,23 @@ BOOL CUtils::SaveYUY2ToJPEG(const BYTE* pYuy2Data, int nWidth, int nHeight, std:
     return SaveBGRXToJPEG(rgbData.data(), nWidth, nHeight, filename);
 }
 
+BOOL CUtils::SaveFrameToFile(const BYTE* pFrameBuffer, int nWidth, int nHeight, std::string format, std::wstring filename)
+{
+    BOOL ret = FALSE;
+
+    if (format == "BGRx")
+        ret = CUtils::SaveBGRXToJPEG(pFrameBuffer, nWidth, nHeight, filename);
+    else if (format == "YUY2")
+        ret = CUtils::SaveYUY2ToJPEG(pFrameBuffer, nWidth, nHeight, filename);
+    else
+        AfxMessageBox("Unsupported video format");
+
+    if (!ret)
+        AfxMessageBox("Unable to save snapshot");
+
+    return ret;
+}
+
 std::wstring CUtils::CStringToStdWString(CString& cstr)
 {
     int len = cstr.GetLength() + 1;
@@ -192,4 +209,69 @@ std::wstring CUtils::CStringToStdWString(CString& cstr)
     // Clean up
     delete[] wcharStr;
     return wstr;
+}
+
+std::string CUtils::GetFormattedTime()
+{
+    SYSTEMTIME st;
+    GetLocalTime(&st); // Use GetSystemTime for UTC time
+
+    CString formattedTime;
+    formattedTime.Format(_T("%04d-%02d-%02d %02d:%02d:%02d.%03d"),
+        st.wYear,
+        st.wMonth,
+        st.wDay,
+        st.wHour,
+        st.wMinute,
+        st.wSecond,
+        st.wMilliseconds);
+
+    return formattedTime.GetBuffer();
+}
+
+BOOL CUtils::WriteToRegistry(std::string subKey, std::string regKey, std::string regValue)
+{
+    CString appName;
+    HKEY hKey;
+    LONG lResult;
+
+    appName.LoadString(AFX_IDS_APP_TITLE);
+    subKey = std::string("Software\\") + appName.GetBuffer() + "\\" + subKey;
+
+    // Create or open the key
+    lResult = RegCreateKeyEx(HKEY_CURRENT_USER, subKey.c_str(), 0, NULL,
+        REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hKey, NULL);
+    
+    if (lResult == ERROR_SUCCESS)
+    {
+        lResult = RegSetValueEx(hKey, regKey.c_str(), 0, REG_SZ, (const BYTE*)regValue.c_str(), regValue.size() + 1);
+        if (lResult != ERROR_SUCCESS)
+            return FALSE;
+
+        RegCloseKey(hKey);
+    }
+    else
+    {
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+BOOL CUtils::DeleteRegistryEntryTree(std::string subKey)
+{
+    CString appName;
+    LONG lResult;
+
+    appName.LoadString(AFX_IDS_APP_TITLE);
+    subKey = std::string("Software\\") + appName.GetBuffer() + "\\" + subKey;
+
+    // Delete the key and its subkeys
+    lResult = RegDeleteTree(HKEY_CURRENT_USER, subKey.c_str());
+    if (lResult == ERROR_SUCCESS)
+        return TRUE;
+    else if (lResult == ERROR_FILE_NOT_FOUND)
+        return FALSE;
+    else
+        return FALSE;
 }

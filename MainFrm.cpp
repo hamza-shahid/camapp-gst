@@ -22,13 +22,14 @@
 #define ID_MENU_SOURCES					2
 #define ID_MENU_SINKS					3
 #define ID_MENU_OPTIONS					4
+#define ID_MENU_BARCODE					5
 
 
 // CMainFrame
 
-IMPLEMENT_DYNAMIC(CMainFrame, CFrameWnd)
+IMPLEMENT_DYNAMIC(CMainFrame, CFrameWndEx)
 
-BEGIN_MESSAGE_MAP(CMainFrame, CFrameWnd)
+BEGIN_MESSAGE_MAP(CMainFrame, CFrameWndEx)
 	ON_WM_CREATE()
 	ON_WM_SETFOCUS()
 	ON_COMMAND_RANGE(MENU_VDEVICE0, MENU_VDEVICE9, &CMainFrame::OnCameraSelect)
@@ -36,6 +37,8 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWnd)
 	ON_COMMAND_RANGE(ID_SINK_AUTO, ID_SINK_OPENGL, &CMainFrame::OnSinkSelect)
 	ON_COMMAND(ID_OPTIONS_PREVIEW, &CMainFrame::OnPreview)
 	ON_COMMAND(ID_OPTIONS_SNAPSHOT, &CMainFrame::OnSnapshot)
+	ON_COMMAND(ID_BARCODE_SCAN, &CMainFrame::OnBarcodeScan)
+	ON_COMMAND(ID_BARCODE_SHOW_LOCATION, &CMainFrame::OnBarcodeShowLocation)
 	ON_MESSAGE(WM_ON_RESIZE_WINDOW, &CMainFrame::OnResizeWindow)
 	ON_MESSAGE(WM_ON_OPENGL_WINDOW_CLOSE, &CMainFrame::OnOpenGlWindowClose)
 	ON_MESSAGE(WM_ON_PRINT_ANALYSIS_CHANGE_OPTS, &CMainFrame::OnPrintAnalysisChangeOpts)
@@ -44,9 +47,16 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWnd)
 	ON_COMMAND(ID_OPTIONS_SHOWFPS, &CMainFrame::OnShowFps)
 	ON_COMMAND(ID_MENU_PRINT_ANALYSIS_OPTS, &CMainFrame::OnPrintAnalysisOptions)
 	ON_MESSAGE(WM_ON_PRINT_ANALYSIS_NOT_FOUND, &CMainFrame::OnPrintAnalysisFilterNotFound)
+	ON_MESSAGE(WM_ON_BARCODE_READER_NOT_FOUND, &CMainFrame::OnBarcodeReaderFilterNotFound)
 	ON_UPDATE_COMMAND_UI(ID_OPTIONS_SNAPSHOT, &CMainFrame::OnUpdateSnapshotToolbarBtn)
 	ON_UPDATE_COMMAND_UI(ID_OPTIONS_CAMERAPROPERTIES, &CMainFrame::OnUpdateCameraSettingsToolbarBtn)
 	ON_UPDATE_COMMAND_UI(ID_OPTIONS_SHOWFPS, &CMainFrame::OnUpdateFpsToolbarBtn)
+	ON_UPDATE_COMMAND_UI(ID_BARCODE_SHOW_LOCATION, &CMainFrame::OnUpdateShowLocationToolbarBtn)
+	ON_UPDATE_COMMAND_UI(ID_BARCODE_TYPES, &CMainFrame::OnUpdateBarcodeFormatsToolbarBtn)
+	ON_UPDATE_COMMAND_UI(ID_BARCODE_SCAN, &CMainFrame::OnUpdateBarcodeScanToolbarBtn)
+	ON_COMMAND(ID_BARCODE_TYPES, &CMainFrame::OnBarcodeTypesToScan)
+	ON_MESSAGE(WM_ON_BARCODE_FOUND, &CMainFrame::OnBarcodeFound)
+	ON_COMMAND(ID_OCR_RUN_OCR, &CMainFrame::OnRunOCR)
 END_MESSAGE_MAP()
 
 static UINT indicators[] =
@@ -62,6 +72,9 @@ static UINT indicators[] =
 CMainFrame::CMainFrame() noexcept
 	: m_pAmVideoProcAmp(nullptr)
 	, m_pAmCameraControl(nullptr)
+	, m_bBarcodeScanEnabled(FALSE)
+	, m_bBarcodeShowLocation(TRUE)
+	, m_bBarcodeReaderAvailable(TRUE)
 {
 	m_bAutoMenuEnable = FALSE;
 	m_bPreviewEnabled = FALSE;
@@ -73,8 +86,8 @@ CMainFrame::CMainFrame() noexcept
 	if (FAILED(hr)) {
 	}
 
-	m_nToolbarBtnImageWidth = 20;
-	m_nToolbarBtnImageHeight = 20;
+	m_nToolbarBtnImageWidth = 25;
+	m_nToolbarBtnImageHeight = 25;
 }
 
 CMainFrame::~CMainFrame()
@@ -88,37 +101,44 @@ CMainFrame::~CMainFrame()
 	CoUninitialize();
 }
 
-void CMainFrame::AddToolbarButton(int nCommandId, int nResourceIdDefault, int nResourceIdPressed)
+void CMainFrame::AddToolbarButton(int nCommandId, int nResourceIdDefault, int nResourceIdPressed, CString strBtnText)
 {
+	CMFCToolBarImages* toolbarImages = CMFCToolBar::GetImages();
 	ToolbarBtnPtr pToolbarBtn = std::make_shared<ToolbarBtn>();
 	HBITMAP hBmpDefault = CUtils::LoadPNGToHBITMAP(nResourceIdDefault, m_nToolbarBtnImageWidth, m_nToolbarBtnImageHeight);
 
 	pToolbarBtn->nCmdId = nCommandId;
-	pToolbarBtn->nImgIdxDefault = m_imgList.Add(CBitmap::FromHandle(hBmpDefault), RGB(0, 0, 0));
+	pToolbarBtn->nImgIdxDefault = toolbarImages->AddImage(hBmpDefault, TRUE);
 
 	if (nResourceIdPressed != -1)
 	{
 		HBITMAP hBmpPressed = CUtils::LoadPNGToHBITMAP(nResourceIdPressed, m_nToolbarBtnImageWidth, m_nToolbarBtnImageHeight);
-		pToolbarBtn->nImgIdxPressed = m_imgList.Add(CBitmap::FromHandle(hBmpPressed), RGB(0, 0, 0));
+		pToolbarBtn->nImgIdxPressed = toolbarImages->AddImage(hBmpPressed, TRUE);
 	}
-	
-	TBBUTTON tbb;
-	tbb.iBitmap = pToolbarBtn->nImgIdxDefault;
-	tbb.idCommand = nCommandId; // Replace with a valid command ID
-	tbb.fsState = TBSTATE_ENABLED;
-	tbb.fsStyle = TBSTYLE_BUTTON;
-	tbb.dwData = 0;
-	tbb.iString = -1;
-	
-	m_wndToolBar.GetToolBarCtrl().AddButtons(1, &tbb);
+
 	m_toolbarBtnList[nCommandId] = pToolbarBtn;
+	
+	CMFCToolBarButton mfctbButton;
+	mfctbButton.m_nID = nCommandId;
+	
+	mfctbButton.m_bText = TRUE; // No text for simplicity (set TRUE if you need text)
+	mfctbButton.m_bTextBelow = TRUE;
+	mfctbButton.m_bWrap = TRUE;
+	mfctbButton.m_bWholeText = FALSE;
+	CMFCToolBarButton::m_bWrapText = TRUE;
+	mfctbButton.m_strText = "";
+	
+	mfctbButton.m_nStyle = TBSTATE_ENABLED | TBSTYLE_BUTTON;
+	mfctbButton.SetImage(pToolbarBtn->nImgIdxDefault);
+
+	m_wndToolBar.InsertButton(mfctbButton);
 }
 
 int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 {
-	if (CFrameWnd::OnCreate(lpCreateStruct) == -1)
+	if (CFrameWndEx::OnCreate(lpCreateStruct) == -1)
 		return -1;
-
+	
 	// create a view to occupy the client area of the frame
 	if (!m_wndView.Create(nullptr, nullptr, AFX_WS_DEFAULT_VIEW, CRect(0, 0, 0, 0), this, AFX_IDW_PANE_FIRST, nullptr))
 	{
@@ -133,24 +153,26 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	}
 
 	m_wndToolBar.EnableToolTips(TRUE);
+	m_wndToolBar.EnableTextLabels();
 	
-	m_imgList.Create(m_nToolbarBtnImageWidth, m_nToolbarBtnImageHeight, ILC_COLOR32 | ILC_MASK, 6, 10);
-
-	AddToolbarButton(ID_OPTIONS_PREVIEW, IDB_PNG_PREVIEW, IDB_PNG_PREVIEW_STOP);
-	AddToolbarButton(ID_OPTIONS_CAMERASETTINGS, IDB_PNG_VIDEO_SETTINGS);
-	AddToolbarButton(ID_OPTIONS_CAMERAPROPERTIES, IDB_PNG_CAMERA_SETTINGS);
-	AddToolbarButton(ID_MENU_PRINT_ANALYSIS_OPTS, IDB_PNG_PRINT_ANALYSIS);
-	AddToolbarButton(ID_OPTIONS_SNAPSHOT, IDB_PNG_SNAPSHOT);
-	AddToolbarButton(ID_OPTIONS_SHOWFPS, IDB_PNG_FPS, IDB_PNG_FPS_OFF);
-
-	// Set the toolbar image list to use the high-color images
-	m_wndToolBar.SendMessage(TB_SETIMAGELIST, 0, (LPARAM)m_imgList.Detach());
-	m_wndToolBar.SetSizes(CSize(m_nToolbarBtnImageWidth + 10, m_nToolbarBtnImageHeight + 9), CSize(m_nToolbarBtnImageWidth, m_nToolbarBtnImageHeight));
+	CMFCToolBar::GetImages()->SetImageSize(CSize(m_nToolbarBtnImageWidth, m_nToolbarBtnImageHeight));
+	m_wndToolBar.SetSizes(CSize(m_nToolbarBtnImageWidth + 12, m_nToolbarBtnImageHeight + 10), CSize(m_nToolbarBtnImageWidth, m_nToolbarBtnImageHeight));
+	
+	AddToolbarButton(ID_OPTIONS_PREVIEW, IDB_PNG_PREVIEW, IDB_PNG_PREVIEW_STOP, "Preview");
+	AddToolbarButton(ID_OPTIONS_CAMERASETTINGS, IDB_PNG_VIDEO_SETTINGS, -1, "Video Settings");
+	AddToolbarButton(ID_OPTIONS_CAMERAPROPERTIES, IDB_PNG_CAMERA_SETTINGS, -1, "Camera Settings");
+	AddToolbarButton(ID_MENU_PRINT_ANALYSIS_OPTS, IDB_PNG_PRINT_ANALYSIS, -1, "Print Analysis");
+	AddToolbarButton(ID_OPTIONS_SNAPSHOT, IDB_PNG_SNAPSHOT, -1, "Snapshot");
+	AddToolbarButton(ID_OPTIONS_SHOWFPS, IDB_PNG_FPS, IDB_PNG_FPS_OFF, "Show FPS");
+	AddToolbarButton(ID_BARCODE_SCAN, IDB_PNG_BARCODE, IDB_PNG_BARCODE_OFF, "Barcode Scanning");
+	AddToolbarButton(ID_BARCODE_SHOW_LOCATION, IDB_PNG_LOCATION, IDB_PNG_LOCATION_OFF, "Barcode Location");
+	AddToolbarButton(ID_BARCODE_TYPES, IDB_PNG_BARCODE_FORMATS, -1, "Barcode Formats");
+	AddToolbarButton(ID_OCR_RUN_OCR, IDB_PNG_OCR, -1, "Run OCR");
 
 	m_wndToolBar.EnableDocking(CBRS_ALIGN_ANY);
 	EnableDocking(CBRS_ALIGN_ANY);
-	DockControlBar(&m_wndToolBar);
-
+	DockPane(&m_wndToolBar);
+	
 	if (!m_wndStatusBar.Create(this))
 	{
 		TRACE0("Failed to create status bar\n");
@@ -158,6 +180,21 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	}
 	m_wndStatusBar.SetIndicators(indicators, sizeof(indicators)/sizeof(UINT));
 	
+	EnableAutoHidePanes(CBRS_ALIGN_ANY);
+
+	// Create the output pane
+	if (!m_wndOutputPane.CreateEx(WS_EX_CLIENTEDGE, _T("Output"), this, CRect(0, 0, 100, 100), TRUE, ID_VIEW_BARCODEWND,
+		WS_CHILD | WS_VISIBLE | CBRS_BOTTOM | CBRS_HIDE_INPLACE | CBRS_SIZE_DYNAMIC))
+	{
+		TRACE("Failed to create output pane\n");
+		return -1;
+	}
+
+	m_wndOutputPane.EnableDocking(CBRS_ALIGN_ANY);
+	DockPane(&m_wndOutputPane);
+
+	m_gstPlayer.Init(GetSafeHwnd());
+
 	CMenu* pMenuSub = GetMenu()->GetSubMenu(ID_MENU_DEVICES);
 	int iMenuItems = pMenuSub->GetMenuItemCount();
 
@@ -166,8 +203,6 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		for (int i = 0; i < iMenuItems; i++)
 			pMenuSub->RemoveMenu(0, MF_BYPOSITION);
 	}
-
-	m_gstPlayer.Init(GetSafeHwnd());
 
 	StringList deviceNames = m_gstPlayer.GetDeviceNames();
 	int iDeviceIndex = 0;
@@ -186,20 +221,30 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	GetMenu()->GetSubMenu(ID_MENU_SOURCES)->CheckMenuItem(ID_SOURCE_MEDIAFOUNDATION, MF_CHECKED);
 
 	m_strSink = g_gstSinks[ID_SINK_AUTO];
+	
 	GetMenu()->GetSubMenu(ID_MENU_SINKS)->CheckMenuItem(ID_SINK_AUTO, MF_CHECKED);
 	GetMenu()->GetSubMenu(ID_MENU_OPTIONS)->EnableMenuItem(ID_OPTIONS_SNAPSHOT, MF_DISABLED);
+	GetMenu()->GetSubMenu(ID_MENU_BARCODE)->CheckMenuItem(ID_BARCODE_SCAN, MF_UNCHECKED);
+	GetMenu()->GetSubMenu(ID_MENU_BARCODE)->CheckMenuItem(ID_BARCODE_SHOW_LOCATION, MF_CHECKED);
+	GetMenu()->GetSubMenu(ID_MENU_BARCODE)->EnableMenuItem(ID_BARCODE_SHOW_LOCATION, MF_DISABLED);
+	GetMenu()->GetSubMenu(ID_MENU_BARCODE)->EnableMenuItem(ID_BARCODE_TYPES, MF_DISABLED);
+	ToggleToolbarButton(ID_BARCODE_SCAN);
 
 	m_deviceCapsList = m_gstPlayer.GetDeviceCaps(m_strSource, 0);
 	m_deviceCapsDlg.UpdateDeviceCaps(m_strSource, 0, m_deviceCapsList);
 
 	m_pDlgCamSettingsPropSheet = new CPropertySheet("Camera Settings", this);
 
+	CMFCVisualManager::SetDefaultManager(RUNTIME_CLASS(CMFCVisualManagerVS2008));
+	CDockingManager::SetDockingMode(DT_SMART);
+	RedrawWindow(nullptr, nullptr, RDW_ALLCHILDREN | RDW_INVALIDATE | RDW_UPDATENOW | RDW_FRAME | RDW_ERASE);
+
 	return 0;
 }
 
 BOOL CMainFrame::PreCreateWindow(CREATESTRUCT& cs)
 {
-	if( !CFrameWnd::PreCreateWindow(cs) )
+	if( !CFrameWndEx::PreCreateWindow(cs) )
 		return FALSE;
 
 	cs.cx = 800;  // Width
@@ -215,12 +260,12 @@ BOOL CMainFrame::PreCreateWindow(CREATESTRUCT& cs)
 #ifdef _DEBUG
 void CMainFrame::AssertValid() const
 {
-	CFrameWnd::AssertValid();
+	CFrameWndEx::AssertValid();
 }
 
 void CMainFrame::Dump(CDumpContext& dc) const
 {
-	CFrameWnd::Dump(dc);
+	CFrameWndEx::Dump(dc);
 }
 #endif //_DEBUG
 
@@ -240,7 +285,7 @@ BOOL CMainFrame::OnCmdMsg(UINT nID, int nCode, void* pExtra, AFX_CMDHANDLERINFO*
 		return TRUE;
 
 	// otherwise, do default handling
-	return CFrameWnd::OnCmdMsg(nID, nCode, pExtra, pHandlerInfo);
+	return CFrameWndEx::OnCmdMsg(nID, nCode, pExtra, pHandlerInfo);
 }
 
 void CMainFrame::OnCameraSelect(UINT id)
@@ -275,7 +320,16 @@ void CMainFrame::OnSourceSelect(UINT id)
 void CMainFrame::ToggleToolbarButton(int nBtnCommandId)
 {
 	ToolbarBtnPtr pToolbarBtn = m_toolbarBtnList[nBtnCommandId];
-	m_wndToolBar.GetToolBarCtrl().ChangeBitmap(nBtnCommandId, pToolbarBtn->bToggleFlag ? pToolbarBtn->nImgIdxDefault : pToolbarBtn->nImgIdxPressed);
+	
+	int index = m_wndToolBar.CommandToIndex(nBtnCommandId);
+	if (index < 0)
+		return;
+	
+	CMFCToolBarButton* pButton = m_wndToolBar.GetButton(index);
+	if (pButton == nullptr)
+		return;
+	
+	pButton->SetImage(pToolbarBtn->bToggleFlag ? pToolbarBtn->nImgIdxDefault : pToolbarBtn->nImgIdxPressed);
 	pToolbarBtn->bToggleFlag = !pToolbarBtn->bToggleFlag;
 }
 
@@ -416,6 +470,13 @@ LRESULT CMainFrame::OnResizeWindow(WPARAM wParam, LPARAM lParam)
 			desiredClientRect.bottom += toolBarRect.Height();
 		}
 
+		if (m_wndOutputPane && m_wndOutputPane.IsWindowVisible())
+		{
+			CRect outputPaneRect;
+			m_wndOutputPane.GetWindowRect(&outputPaneRect);
+			desiredClientRect.bottom += outputPaneRect.Height();
+		}
+
 		// Resize the frame window so that its client area is exactly 640x360
 		SetWindowPos(nullptr, 0, 0, desiredClientRect.Width(), desiredClientRect.Height(), SWP_NOMOVE | SWP_NOZORDER);
 
@@ -554,6 +615,18 @@ LRESULT CMainFrame::OnPrintAnalysisFilterNotFound(WPARAM wParam, LPARAM lParam)
 	return 0;
 }
 
+LRESULT CMainFrame::OnBarcodeReaderFilterNotFound(WPARAM wParam, LPARAM lParam)
+{
+	/*
+	CMenu* pBarcodeMenu = GetMenu()->GetSubMenu(ID_MENU_BARCODE);
+	pBarcodeMenu->EnableMenuItem(ID_BARCODE_SCAN, MF_DISABLED);
+	pBarcodeMenu->EnableMenuItem(ID_BARCODE_SHOW_LOCATION, MF_DISABLED);
+	pBarcodeMenu->EnableMenuItem(ID_BARCODE_TYPES, MF_DISABLED);
+	*/
+	m_bBarcodeReaderAvailable = FALSE;
+	return 0;
+}
+
 void CMainFrame::OnSnapshot()
 {
 	CFileDialog dlg(FALSE, _T("jpg"), _T("snapshot"),
@@ -569,6 +642,7 @@ void CMainFrame::OnSnapshot()
 
 		if (m_gstPlayer.GetSnapshot(&pBuffer, nSize, nWidth, nHeight, format))
 		{
+			/*
 			BOOL ret = FALSE;
 
 			if (format == "BGRx")
@@ -580,6 +654,8 @@ void CMainFrame::OnSnapshot()
 
 			if (!ret)
 				MessageBox("Unable to save snapshot");
+			*/
+			CUtils::SaveFrameToFile(pBuffer, nWidth, nHeight, format, CUtils::CStringToStdWString(filePath));
 		}
 		else
 		{
@@ -601,4 +677,72 @@ void CMainFrame::OnUpdateCameraSettingsToolbarBtn(CCmdUI* pCmdUI)
 void CMainFrame::OnUpdateFpsToolbarBtn(CCmdUI* pCmdUI)
 {
 	pCmdUI->Enable(!m_bPreviewEnabled);
+}
+
+void CMainFrame::OnBarcodeScan()
+{
+	m_bBarcodeScanEnabled = !m_bBarcodeScanEnabled;
+
+	CMenu* pBarcodeMenu = GetMenu()->GetSubMenu(ID_MENU_BARCODE);
+	pBarcodeMenu->CheckMenuItem(ID_BARCODE_SCAN, m_bBarcodeScanEnabled ? MF_CHECKED : MF_UNCHECKED);
+	pBarcodeMenu->EnableMenuItem(ID_BARCODE_SHOW_LOCATION, m_bBarcodeScanEnabled ? MF_ENABLED : MF_DISABLED);
+	ToggleToolbarButton(ID_BARCODE_SCAN);
+
+	m_gstPlayer.EnableBarcodeScan(m_bBarcodeScanEnabled);
+}
+
+void CMainFrame::OnUpdateShowLocationToolbarBtn(CCmdUI* pCmdUI)
+{
+	pCmdUI->Enable(m_bBarcodeScanEnabled);
+}
+
+void CMainFrame::OnUpdateBarcodeFormatsToolbarBtn(CCmdUI* pCmdUI)
+{
+	pCmdUI->Enable(m_bBarcodeScanEnabled);
+}
+
+void CMainFrame::OnBarcodeShowLocation()
+{
+	m_bBarcodeShowLocation = !m_bBarcodeShowLocation;
+	m_gstPlayer.EnableBarcodeLocation(m_bBarcodeShowLocation);
+	ToggleToolbarButton(ID_BARCODE_SHOW_LOCATION);
+}
+
+void CMainFrame::OnBarcodeTypesToScan()
+{
+	if (m_dlgBarcodeTypes.DoModal() == IDOK)
+		m_gstPlayer.SetBarcodeFormats(m_dlgBarcodeTypes.GetBarcodeFormats());
+}
+
+LRESULT CMainFrame::OnBarcodeFound(WPARAM wParam, LPARAM lParam)
+{
+	BarcodeList* pBarcodeList = (BarcodeList*) lParam;
+	BOOL bRet = CUtils::DeleteRegistryEntryTree("Barcodes");
+	int nBarcodeIdx = 0;
+
+	for (BarcodeInfoPtr pBarcodeInfo : *pBarcodeList)
+	{
+		std::string subKey = "Barcodes\\" + std::to_string(nBarcodeIdx);
+
+		m_wndOutputPane.AppendOutput(pBarcodeInfo->barcode, pBarcodeInfo->format);
+		
+		bRet = CUtils::WriteToRegistry(subKey, "Barcode", pBarcodeInfo->barcode);
+		bRet = CUtils::WriteToRegistry(subKey, "Format", pBarcodeInfo->format);
+
+		nBarcodeIdx++;
+	}
+
+	delete pBarcodeList;
+
+	return 0;
+}
+
+void CMainFrame::OnUpdateBarcodeScanToolbarBtn(CCmdUI* pCmdUI)
+{
+	pCmdUI->Enable(m_bBarcodeReaderAvailable);
+}
+
+VOID CMainFrame::OnRunOCR()
+{
+
 }

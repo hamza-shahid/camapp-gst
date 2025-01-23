@@ -57,6 +57,15 @@
     <ClInclude Include="Utils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="BarcodeTypesDlg.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="BarcodeFormat.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OutputWnd.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="camapp-gst.cpp">
@@ -90,6 +99,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Utils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="BarcodeTypesDlg.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OutputWnd.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -129,6 +144,24 @@
       <Filter>Resource Files</Filter>
     </Image>
     <Image Include="res\fps-logo-off.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\barcode.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\barcode-off.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\location.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\location-off.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\barcode-formats.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\ocr.png">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>

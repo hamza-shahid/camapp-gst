@@ -11,6 +11,18 @@
 #define WM_ON_RESIZE_WINDOW (WM_USER + 1)
 #define WM_ON_OPENGL_WINDOW_CLOSE (WM_USER + 2)
 #define WM_ON_PRINT_ANALYSIS_NOT_FOUND (WM_USER + 3)
+#define WM_ON_BARCODE_READER_NOT_FOUND (WM_USER + 4)
+#define WM_ON_BARCODE_FOUND (WM_USER + 5)
+
+
+struct BarcodeInfo
+{
+	std::string barcode;
+	std::string format;
+};
+
+typedef std::shared_ptr< BarcodeInfo > BarcodeInfoPtr;
+typedef std::vector< BarcodeInfoPtr > BarcodeList;
 
 typedef std::vector< std::string > StringList;
 typedef std::pair< int, int > Fraction;
@@ -67,6 +79,10 @@ public:
 
 	BOOL GetSnapshot(BYTE** ppBuffer, int& nSize, int& nWidth, int& nHeight, std::string& format);
 
+	void EnableBarcodeScan(BOOL bEnable = TRUE);
+	void EnableBarcodeLocation(BOOL bEnable = TRUE);
+	void SetBarcodeFormats(UINT uBarcodeFormats);
+
 private:
 	GstElement* AddElement(
 		std::string strFactoryName,
@@ -85,7 +101,9 @@ private:
 	DeviceCapsPtr ParseCapsStr(std::string strCaps);
 	void SetPrintAnalysisElementOpts();
 	void SetSnapshot(BYTE* pBuffer, int nSize, int nWidth, int nHeight, std::string format);
+	void SendBarcode(BarcodeList* pBarcodeList);
 
+	static void OnBarcodesReceived(GstElement* pBarcodeReader, GArray* pArray, gpointer pUserData);
 	static GstPadProbeReturn BufferProbeCallback(GstPad* pPad, GstPadProbeInfo* pInfo, gpointer pUserData);
 	static void OnElementAddedToPipeline(GstBin* pBin, GstElement* pElement, gpointer pUserData);
 	static LRESULT CALLBACK NewOpenGlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -97,9 +115,13 @@ private:
 	GstElement* m_pSource;
 	GstElement* m_pSink;
 	GstElement* m_pPrintAnalysis;
+	GstElement* m_pBarcodeReader;
 	std::string m_strSink;
 	HWND		m_hVideoWindow;
 	BOOL		m_bPrintAnalysisFilter;
+	BOOL		m_bBarcodeReader;
+	BOOL		m_bEnableBarcodeScan;
+	UINT		m_uBarcodeFormat;
 	
 	static WNDPROC	m_origOpenGlWndProc;
 	

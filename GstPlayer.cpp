@@ -1,12 +1,12 @@
 #include "pch.h"
 #include "GstPlayer.h"
 #include "resource.h"
+#include "BarcodeFormat.h"
 
 #include <gst/video/videooverlay.h>
 #include <functional>
 #include <sstream>
 #include <algorithm>
-
 
 
 WNDPROC CGstPlayer::m_origOpenGlWndProc = NULL;
@@ -24,7 +24,7 @@ GstResource g_gstSinks = {
 	{ ID_SINK_OPENGL, "glimagesink" }
 };
 
-std::string GetExecutableFolderPath()
+static std::string GetExecutableFolderPath()
 {
 	char path[MAX_PATH];
 	std::string fullPath;
@@ -40,8 +40,21 @@ std::string GetExecutableFolderPath()
 	return "";
 }
 
+static BOOL LoadGstPlugin(std::string pluginName)
+{
+	GError* pPluginError = NULL;
+	std::string strPluginPath = GetExecutableFolderPath() + "\\" + pluginName + ".dll";
+	GstPlugin* pPlugin = gst_plugin_load_file(strPluginPath.c_str(), &pPluginError);
+
+	return pPlugin != NULL;
+}
+
 CGstPlayer::CGstPlayer()
 	: m_pSnapshotBuffer(NULL)
+	, m_pBarcodeReader(NULL)
+	, m_bBarcodeReader(FALSE)
+	, m_bEnableBarcodeScan(FALSE)
+	, m_uBarcodeFormat(BarcodeFormat_Invalid)
 {
 	int argc = 0;
 	char** argv = NULL;
@@ -75,18 +88,14 @@ BOOL CGstPlayer::Init(HWND hParent)
 
 	m_hParent = hParent;
 
-	GError* pPluginError = NULL;
-	std::string strPrintAnalysisPluginPath = GetExecutableFolderPath() + "\\" + "printanalysis.dll";
-
-	GstPlugin* pPlugin = gst_plugin_load_file(strPrintAnalysisPluginPath.c_str(), &pPluginError);
-	if (!pPlugin)
-	{
-		m_bPrintAnalysisFilter = FALSE;
+	m_bPrintAnalysisFilter = LoadGstPlugin("printanalysis");
+	if (!m_bPrintAnalysisFilter)
 		PostMessage(m_hParent, WM_ON_PRINT_ANALYSIS_NOT_FOUND, 0L, 0L);
-	}
-	else
-		m_bPrintAnalysisFilter = TRUE;
 
+	m_bBarcodeReader = LoadGstPlugin("barcodereader");
+	if (!m_bBarcodeReader)
+		PostMessage(m_hParent, WM_ON_BARCODE_READER_NOT_FOUND, 0L, 0L);
+	
 	gst_device_monitor_add_filter(pMonitor, "Video/Source", NULL);
 	m_pDevices = gst_device_monitor_get_devices(pMonitor);
 
@@ -97,7 +106,6 @@ BOOL CGstPlayer::Init(HWND hParent)
 
 		if (!CameraExists(pcDeviceName))
 		{
-			
 			m_CameraList.push_back(pDevice);
 			iDeviceIndex++;
 		}
@@ -138,7 +146,7 @@ GstElement* CGstPlayer::AddElement(
 	}
 
 	if (pvProperty)
-		g_object_set(pElement, strPropertyName.c_str(), pvProperty, NULL);
+		g_object_set(G_OBJECT(pElement), strPropertyName.c_str(), pvProperty, NULL);
 
 	if (!gst_bin_add(GST_BIN(m_pPipeline), pElement))
 	{
@@ -198,6 +206,30 @@ GstPadProbeReturn CGstPlayer::BufferProbeCallback(GstPad* pPad, GstPadProbeInfo*
 	return GST_PAD_PROBE_OK;
 }
 
+void CGstPlayer::OnBarcodesReceived(GstElement* pBarcodeReader, GArray* pArray, gpointer pUserData)
+{
+	CGstPlayer* pGstPlayer = (CGstPlayer*) pUserData;
+	BarcodeList* pBarcodeList = new BarcodeList;
+
+	for (guint i = 0; i < pArray->len; i++)
+	{
+		GstStructure* pBarcode = g_array_index(pArray, GstStructure*, i);
+		BarcodeInfoPtr pBarcodeInfo = std::make_shared<BarcodeInfo>();
+
+		pBarcodeInfo->barcode = gst_structure_get_string(pBarcode, "text");
+		pBarcodeInfo->format = gst_structure_get_string(pBarcode, "format");
+
+		pBarcodeList->push_back(pBarcodeInfo);
+	}
+
+	pGstPlayer->SendBarcode(pBarcodeList);
+}
+
+void CGstPlayer::SendBarcode(BarcodeList* pBarcodeList)
+{
+	PostMessage(m_hParent, WM_ON_BARCODE_FOUND, NULL, (LPARAM) pBarcodeList);
+}
+
 #define ADD_ELEMENT_WITH_ERR_CHECK(strFactoryName, name, strPropertyName, pvProperty, pPrevElement, pElemOut, strError)	\
 	{																													\
 		AddElement(strFactoryName, name, strPropertyName, pvProperty, pPrevElement, pElemOut, strError);				\
@@ -212,6 +244,7 @@ GstPadProbeReturn CGstPlayer::BufferProbeCallback(GstPad* pPad, GstPadProbeInfo*
 BOOL CGstPlayer::StartPreview(std::string strSource, int iDeviceIndex, std::string strSink, std::string strMediaType, std::string strFormat, int iWidth, int iHeight, FractionPtr framerate, BOOL bShowFps, std::string& strError, HWND hVideoWindow)
 {
 	GstElement* pPrevElement = NULL;
+	GstElement* pSnapshotElement = NULL;
 
 	m_elementList.clear();
 	m_hVideoWindow = hVideoWindow;
@@ -234,6 +267,8 @@ BOOL CGstPlayer::StartPreview(std::string strSource, int iDeviceIndex, std::stri
 
 	ADD_ELEMENT_WITH_ERR_CHECK("capsfilter", "source-capsfilter", "caps", pSourceCaps, pPrevElement, &pPrevElement, strError);
 
+	pSnapshotElement = pPrevElement;
+
 	if (strMediaType == "image/jpeg")
 		ADD_ELEMENT_WITH_ERR_CHECK("jpegdec", "mjpeg-decoder", "", NULL, pPrevElement, &pPrevElement, strError);
 
@@ -248,9 +283,23 @@ BOOL CGstPlayer::StartPreview(std::string strSource, int iDeviceIndex, std::stri
 
 		ADD_ELEMENT_WITH_ERR_CHECK("capsfilter", "video-convert-caps-filter", "caps", pVideoConvertCaps, pPrevElement, &pPrevElement, strError);
 
+		pSnapshotElement = pPrevElement;
 		gst_caps_unref(pVideoConvertCaps);
 	}
+	
+	// barcode reader
+	if (m_bBarcodeReader)
+	{
+		ADD_ELEMENT_WITH_ERR_CHECK("barcodereader", "barcode-reader", "", NULL, pPrevElement, &pPrevElement, strError);
+		m_pBarcodeReader = pPrevElement;
+		g_object_set(G_OBJECT(m_pBarcodeReader), "enable-reader", m_bEnableBarcodeScan, NULL);
 
+		if (m_uBarcodeFormat != BarcodeFormat_Invalid)
+			g_object_set(G_OBJECT(m_pBarcodeReader), "barcode-formats", m_uBarcodeFormat, NULL);
+
+		g_signal_connect(G_OBJECT(m_pBarcodeReader), "barcode-signal", G_CALLBACK(OnBarcodesReceived), this);
+	}
+	
 	if (m_bPrintAnalysisFilter)
 	{
 		ADD_ELEMENT_WITH_ERR_CHECK("printanalysis", "print-analysis", "", NULL, pPrevElement, &pPrevElement, strError);
@@ -284,16 +333,16 @@ BOOL CGstPlayer::StartPreview(std::string strSource, int iDeviceIndex, std::stri
 	}
 
 	// Get the sink pad of your custom transform element
-	GstPad* pSinkPad = gst_element_get_static_pad(m_pPrintAnalysis, "sink");
-	if (!pSinkPad)
+	GstPad* pSrcPad = gst_element_get_static_pad(pSnapshotElement, "src");
+	if (!pSrcPad)
 	{
 		strError = "Failed to get sink pad from print analysis filter";
 		return FALSE;
 	}
 
 	// Add the buffer probe to intercept frames
-	gst_pad_add_probe(pSinkPad, GST_PAD_PROBE_TYPE_BUFFER, BufferProbeCallback, this, NULL);
-	gst_object_unref(pSinkPad);  // Release the pad after adding the probe
+	gst_pad_add_probe(pSrcPad, GST_PAD_PROBE_TYPE_BUFFER, BufferProbeCallback, this, NULL);
+	gst_object_unref(pSrcPad);  // Release the pad after adding the probe
 
 	gst_element_set_state(m_pPipeline, GST_STATE_PLAYING);
 
@@ -662,6 +711,17 @@ void CGstPlayer::SetPrintAnalysisElementOpts()
 	}
 }
 
+void CGstPlayer::EnableBarcodeScan(BOOL bEnable)
+{
+	m_bEnableBarcodeScan = bEnable;
+	g_object_set(G_OBJECT(m_pBarcodeReader), "enable-reader", m_bEnableBarcodeScan, NULL);
+}
+
+void CGstPlayer::EnableBarcodeLocation(BOOL bEnable)
+{
+	g_object_set(G_OBJECT(m_pBarcodeReader), "show-location", bEnable, NULL);
+}
+
 BOOL CGstPlayer::GetSnapshot(BYTE** ppBuffer, int& nSize, int& nWidth, int& nHeight, std::string& format)
 {
 	{
@@ -713,4 +773,12 @@ void CGstPlayer::SetSnapshot(BYTE* pBuffer, int nSize, int nWidth, int nHeight, 
 	}
 	else
 		return;
+}
+
+void CGstPlayer::SetBarcodeFormats(UINT uBarcodeFormats)
+{
+	m_uBarcodeFormat = uBarcodeFormats;
+
+	if (m_pBarcodeReader)
+		g_object_set(G_OBJECT(m_pBarcodeReader), "barcode-formats", uBarcodeFormats, NULL);
 }

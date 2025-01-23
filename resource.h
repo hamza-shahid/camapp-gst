@@ -14,7 +14,6 @@
 #define MENU_VDEVICE8                   18
 #define MENU_VDEVICE9                   19
 #define IDD_ABOUTBOX                    100
-#define IDD_DIALOGBAR                   103
 #define IDD_PROPPAGE_CAMERA_CONTROLS    107
 #define IDR_MAINFRAME                   128
 #define IDR_CAMAPP_GST_TYPE             130
@@ -29,10 +28,20 @@
 #define IDB_PNG_VIDEO_SETTINGS          329
 #define IDB_PNG_PRINT_ANALYSIS          330
 #define IDB_PNG_PREVIEW_STOP            331
-#define IDB_PNG1                        332
 #define IDB_PNG_SNAPSHOT                332
 #define IDB_PNG_FPS                     336
 #define IDB_PNG_FPS_OFF                 337
+#define IDB_PNG_BARCODE_READER          338
+#define IDB_PNG_BARCODE                 339
+#define IDB_PNG_BARCODE_OFF             340
+#define IDB_PNG_LOCATION                341
+#define IDD_DIALOG_BARCODE_TYPES        342
+#define IDB_PNG_LOCATION_OFF            344
+#define IDB_PNG2                        345
+#define IDB_PNG_BARCODE_FORMATS         345
+#define IDR_BARCODE_OUTPUT_POPUP        346
+#define IDB_PNG1                        347
+#define IDB_PNG_OCR                     347
 #define IDC_FORMAT                      1001
 #define IDC_STATIC_FORMAT               1002
 #define IDC_COMBO_FRAME_SIZE            1003
@@ -53,7 +62,6 @@
 #define IDC_STATIC_AOI_HEIGHT           1019
 #define IDC_STATIC_AOI_PARTITIONS       1020
 #define IDC_CHECK_CONNECT_VALUES        1021
-#define IDC_BUTTON1                     1022
 #define IDC_BUTTON_APPLY                1022
 #define IDC_BUTTON_DEFAULT              1022
 #define IDC_BUTTON_VID_PROC_AMP_DEFAULT 1022
@@ -78,7 +86,32 @@
 #define IDC_STATIC_BACKLIGHT_COMP       1091
 #define IDC_STATIC_GAIN                 1092
 #define IDC_STATIC_PL_FREQ              1093
-#define IDC_LIST1                       1094
+#define IDC_CHECK_BARCODE_ALL           1095
+#define IDC_CHECK_BARCODE_LINEAR        1096
+#define IDC_CHECK_BARCODE_MATRIX        1097
+#define IDC_STATIC_LINEAR_CODES         1098
+#define IDC_CHECK_BARCODE_CODABAR       1099
+#define IDC_CHECK_BARCODE_CODE39        1100
+#define IDC_CHECK_BARCODE_CODE93        1101
+#define IDC_CHECK_BARCODE_CODE128       1102
+#define IDC_CHECK_BARCODE_EAN8          1103
+#define IDC_CHECK_BARCODE_EAN13         1104
+#define IDC_CHECK_BARCODE_ITF           1105
+#define IDC_CHECK_BARCODE_DATABAR       1106
+#define IDC_CHECK_BARCODE_DATABAR_EXPANDED 1107
+#define IDC_CHECK_BARCODE_DATABAR_LIMITED 1108
+#define IDC_CHECK_BARCODE_DX_FILM_EDGE  1109
+#define IDC_CHECK_BARCODE_UPCA          1110
+#define IDC_CHECK_BARCODE_UPCE          1111
+#define IDC_STATIC_MATRIX_CODES         1112
+#define IDC_CHECK_BARCODE_AZTEC         1113
+#define IDC_CHECK_BARCODE_DATA_MATRIX   1114
+#define IDC_CHECK_BARCODE_MAXI_CODE     1115
+#define IDC_CHECK_BARCODE_PDF417        1116
+#define IDC_CHECK_BARCODE_QR_CODE       1117
+#define IDC_CHECK_BARCODE_MICRO_QR_CODE 1118
+#define IDC_CHECK_BARCODE_RM_QR_CODE    1119
+#define IDC_STATIC_ALL_CODES            1120
 #define IDC_GROUP_ANALYSIS_TYPE         2001
 #define IDC_RADIO_INTENSITY             2002
 #define IDC_RADIO_MEAN                  2003
@@ -133,6 +166,7 @@
 #define IDC_EDIT_PAN                    4024
 #define IDC_EDIT_TILT                   4025
 #define IDC_EDIT_ROLL                   4026
+#define IDC_LIST_BARCODE                4027
 #define ID_OPTIONS_PREVIEW              32771
 #define ID_SOURCE_KERNELSTREAMING       32772
 #define ID_SOURCE_MEDIAFOUNDATION       32773
@@ -147,15 +181,25 @@
 #define ID_OPTIONS_CAMERASETTINGS       32783
 #define ID_Menu                         32786
 #define ID_OPTIONS_SNAPSHOT             32787
+#define ID_BARCODE_SCAN                 32788
+#define ID_BARCODE_SHOWLOCATION         32789
+#define ID_BARCODE_SHOW_LOCATION        32790
+#define ID_BARCODE_TYPESTOSCAN          32791
+#define ID_BARCODE_TYPES                32792
+#define ID_POPUP_CLEAR                  32793
+#define ID_POPUP_COPY                   32794
+#define ID_POPUP_DELETE                 32795
+#define ID_OCR_RUN_OCR                  32799
 #define ID_DEVICE_START                 33000
+#define ID_VIEW_BARCODEWND              33001
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        338
-#define _APS_NEXT_COMMAND_VALUE         32788
-#define _APS_NEXT_CONTROL_VALUE         1095
+#define _APS_NEXT_RESOURCE_VALUE        348
+#define _APS_NEXT_COMMAND_VALUE         32800
+#define _APS_NEXT_CONTROL_VALUE         1121
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif

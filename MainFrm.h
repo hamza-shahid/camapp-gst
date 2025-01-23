@@ -9,6 +9,8 @@
 #include "PrintAnalysisOptsDlg.h"
 #include "VideoProcAmpPage.h"
 #include "CameraControlsPage.h"
+#include "BarcodeTypesDlg.h"
+#include "OutputWnd.h"
 
 #include <vector>
 #include <thread>
@@ -27,7 +29,7 @@ struct ToolbarBtn
 typedef std::shared_ptr< ToolbarBtn > ToolbarBtnPtr;
 typedef std::unordered_map<int, ToolbarBtnPtr> ToolbarBtnList;
 
-class CMainFrame : public CFrameWnd
+class CMainFrame : public CFrameWndEx
 {
 	
 protected: 
@@ -38,7 +40,7 @@ protected:
 	void EnableDisableMenuSinks();
 
 	HRESULT GetCameraSettingsInterfaces();
-	void AddToolbarButton(int nCommandId, int nResourceIdDefault, int nResourceIdPressed = -1);
+	void AddToolbarButton(int nCommandId, int nResourceIdDefault, int nResourceIdPressed = -1, CString strBtnText = "");
 	void ToggleToolbarButton(int nBtnCommandId);
 
 // Attributes
@@ -62,20 +64,22 @@ public:
 #endif
 
 protected:  // control bar embedded members
-	CStatusBar				m_wndStatusBar;
-	CDialogBar				m_wndDialogBar;
-	CToolBar				m_wndToolBar;
-	CToolTipCtrl			m_tooltips;
-	CImageList				m_imgList;
+	CMFCStatusBar			m_wndStatusBar;
+	CMFCToolBar				m_wndToolBar;
+	COutputPane				m_wndOutputPane;
 	int						m_nToolbarBtnImageWidth;
 	int						m_nToolbarBtnImageHeight;
 	CChildView				m_wndView;
 	CDeviceCapsDlg			m_deviceCapsDlg;
 	CPrintAnalysisOptsDlg	m_printAnalysisOptsDlg;
 	ToolbarBtnList			m_toolbarBtnList;
+	BarcodeList				m_barcodeList;
 
 	int			m_iSelectedCam;
 	BOOL		m_bPreviewEnabled;
+	BOOL		m_bBarcodeScanEnabled;
+	BOOL		m_bBarcodeShowLocation;
+	BOOL		m_bBarcodeReaderAvailable;
 	BOOL		m_bShowFps;
 	std::string	m_strSource;
 	std::string m_strSink;
@@ -84,6 +88,7 @@ protected:  // control bar embedded members
 	CPropertySheet* m_pDlgCamSettingsPropSheet;
 	CCameraControlsPage m_dlgCamCtrl;
 	CVideoProcAmpPage m_dlgVidProcAmp;
+	CBarcodeTypesDlg m_dlgBarcodeTypes;
 
 	DeviceCapsListPtr m_deviceCapsList;
 
@@ -106,10 +111,20 @@ protected:
 	afx_msg void OnShowFps();
 	afx_msg void OnPrintAnalysisOptions();
 	afx_msg LRESULT OnPrintAnalysisFilterNotFound(WPARAM wParam, LPARAM lParam);
+	afx_msg LRESULT OnBarcodeReaderFilterNotFound(WPARAM wParam, LPARAM lParam);
 	afx_msg void OnCameraSettings();
 	afx_msg void OnUpdateSnapshotToolbarBtn(CCmdUI* pCmdUI);
 	afx_msg void OnUpdateCameraSettingsToolbarBtn(CCmdUI* pCmdUI);
 	afx_msg void OnUpdateFpsToolbarBtn(CCmdUI* pCmdUI);
+	afx_msg void OnBarcodeScan();
+	afx_msg void OnUpdateShowLocationToolbarBtn(CCmdUI* pCmdUI);
+	afx_msg void OnUpdateBarcodeFormatsToolbarBtn(CCmdUI* pCmdUI);
+	afx_msg void OnUpdateBarcodeScanToolbarBtn(CCmdUI* pCmdUI);
+	afx_msg void OnBarcodeShowLocation();
+	afx_msg void OnBarcodeTypesToScan();
+	afx_msg LRESULT OnBarcodeFound(WPARAM wParam, LPARAM lParam);
+	afx_msg VOID OnRunOCR();
+	
 	DECLARE_MESSAGE_MAP()
 
 };
