@@ -215,7 +215,7 @@ void CGstPlayer::OnAoiTotalReceived(GstElement* pBarcodeReader, const gchar* pAo
 {
 	CGstPlayer* pGstPlayer = (CGstPlayer*)pUserData;
 
-	pGstPlayer->WritePrintPartitionsTotalToReg(pAoiTotal);
+	pGstPlayer->WritePrintPartitionsResultsToReg(pAoiTotal);
 }
 
 void CGstPlayer::OnBarcodesReceived(GstElement* pBarcodeReader, GArray* pArray, gpointer pUserData)
@@ -884,7 +884,7 @@ void CGstPlayer::ReadPrintPartitionsFromReg()
 	}
 }
 
-void CGstPlayer::WritePrintPartitionsTotalToReg(const char* pJsonStr)
+void CGstPlayer::WritePrintPartitionsResultsToReg(const char* pJsonStr)
 {
 	cJSON* pJson = cJSON_Parse(pJsonStr);
 	if (pJson == NULL)
@@ -903,14 +903,24 @@ void CGstPlayer::WritePrintPartitionsTotalToReg(const char* pJsonStr)
 
 	for (int i = 0; i < nPartitions; i++)
 	{
+		BOOL bResult;
 		cJSON* partition = cJSON_GetArrayItem(pPartitions, i);
 
 		// Extract values from each partition
 		int id = cJSON_GetObjectItem(partition, "id")->valueint;
 		std::string totalStr = cJSON_GetObjectItem(partition, "total")->valuestring;
+		std::string averageStr = cJSON_GetObjectItem(partition, "average")->valuestring;
+		std::string minStr = cJSON_GetObjectItem(partition, "min")->valuestring;
+		std::string maxStr = cJSON_GetObjectItem(partition, "max")->valuestring;
+		std::string nonUniformityStr = cJSON_GetObjectItem(partition, "non-uniformity")->valuestring;
+		
 		std::string subKey = PRINT_ANALYSIS_REG_SUB_KEY + std::string("\\") + std::to_string(id);
 		
-		BOOL bResult = CUtils::WriteToRegistry(PRINT_ANALYSIS_REG_HKEY, subKey, "total", totalStr);
+		bResult = CUtils::WriteToRegistry(PRINT_ANALYSIS_REG_HKEY, subKey, "total", totalStr);
+		bResult = CUtils::WriteToRegistry(PRINT_ANALYSIS_REG_HKEY, subKey, "average", averageStr);
+		bResult = CUtils::WriteToRegistry(PRINT_ANALYSIS_REG_HKEY, subKey, "min", minStr);
+		bResult = CUtils::WriteToRegistry(PRINT_ANALYSIS_REG_HKEY, subKey, "max", maxStr);
+		bResult = CUtils::WriteToRegistry(PRINT_ANALYSIS_REG_HKEY, subKey, "non-uniformity", nonUniformityStr);
 	}
 
 	// Clean up

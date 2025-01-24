@@ -80,7 +80,7 @@ public:
 	static BOOL SetPartitionsReadyFlag();
 	
 	void ReadPrintPartitionsFromReg();
-	void WritePrintPartitionsTotalToReg(const char* pJsonStr);
+	void WritePrintPartitionsResultsToReg(const char* pJsonStr);
 	void SetPrintAnalysisOpts(int nAnalysisType, int nGrayscaleType, int nBlackoutType, BOOL bConnectValues, int nAoiHeight, int nAoiPartitions);
 
 	BOOL GetSnapshot(BYTE** ppBuffer, int& nSize, int& nWidth, int& nHeight, std::string& format);
