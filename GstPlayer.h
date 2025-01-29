@@ -13,6 +13,7 @@
 #define WM_ON_PRINT_ANALYSIS_NOT_FOUND (WM_USER + 3)
 #define WM_ON_BARCODE_READER_NOT_FOUND (WM_USER + 4)
 #define WM_ON_BARCODE_FOUND (WM_USER + 5)
+#define WM_ON_AOI_STATS_RECEIVED (WM_USER + 6)
 
 
 struct BarcodeInfo
@@ -66,6 +67,7 @@ public:
 	BOOL Init(HWND hParent);
 	BOOL StartPreview(std::string strSource, int iDeviceIndex, std::string strSink, std::string strMediaType, std::string strFormat, int iWidth, int iHeight, FractionPtr framerate, BOOL bShowFps, std::string& strError, HWND hVideoWindow);
 	void StopPreview();
+	void PausePreview(BOOL bPause = TRUE);
 	void GetCurrentResolution(int &iWidth, int &iHeight);
 	void Redraw();
 
@@ -89,6 +91,9 @@ public:
 	void EnableBarcodeLocation(BOOL bEnable = TRUE);
 	void SetBarcodeFormats(UINT uBarcodeFormats);
 
+	BOOL GetPipelineDoneFlag();
+	void SetPipelineDoneFlag(BOOL bIsDone);
+
 private:
 	GstElement* AddElement(
 		std::string strFactoryName,
@@ -108,9 +113,10 @@ private:
 	void SetPrintAnalysisElementOpts();
 	void SetSnapshot(BYTE* pBuffer, int nSize, int nWidth, int nHeight, std::string format);
 	void SendBarcode(BarcodeList* pBarcodeList);
+	void SendAoiStats(const char* pAoiStatsStr);
 
 	static void OnBarcodesReceived(GstElement* pBarcodeReader, GArray* pArray, gpointer pUserData);
-	static void OnAoiTotalReceived(GstElement* pBarcodeReader, const gchar* pAoiTotal, gpointer pUserData);
+	static void OnAoiStatsReceived(GstElement* pBarcodeReader, const gchar* pAoiTotal, gpointer pUserData);
 	static GstPadProbeReturn BufferProbeCallback(GstPad* pPad, GstPadProbeInfo* pInfo, gpointer pUserData);
 	static void OnElementAddedToPipeline(GstBin* pBin, GstElement* pElement, gpointer pUserData);
 	static LRESULT CALLBACK NewOpenGlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -123,12 +129,15 @@ private:
 	GstElement* m_pSink;
 	GstElement* m_pPrintAnalysis;
 	GstElement* m_pBarcodeReader;
+	GstState	m_gstState;
 	std::string m_strSink;
 	HWND		m_hVideoWindow;
 	BOOL		m_bPrintAnalysisFilter;
 	BOOL		m_bBarcodeReader;
 	BOOL		m_bEnableBarcodeScan;
 	UINT		m_uBarcodeFormat;
+	std::mutex	m_mtxPipelineDone;
+	BOOL		m_bPipelineDone;
 	
 	static WNDPROC	m_origOpenGlWndProc;
 	

@@ -59,6 +59,8 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWndEx)
 	ON_MESSAGE(WM_ON_BARCODE_FOUND, &CMainFrame::OnBarcodeFound)
 	ON_COMMAND(ID_OCR_RUN_OCR, &CMainFrame::OnRunOCR)
 	ON_WM_TIMER()
+	ON_WM_SIZE()
+	ON_MESSAGE(WM_ON_AOI_STATS_RECEIVED, &CMainFrame::OnAoiStatsReceived)
 END_MESSAGE_MAP()
 
 static UINT indicators[] =
@@ -489,6 +491,7 @@ LRESULT CMainFrame::OnResizeWindow(WPARAM wParam, LPARAM lParam)
 		Invalidate();
 		UpdateWindow();
 	}
+
 	return 0;
 }
 
@@ -771,3 +774,26 @@ void CMainFrame::OnTimer(UINT_PTR nIDEvent)
 	}
 }
 
+void CMainFrame::OnSize(UINT nType, int cx, int cy)
+{
+	CFrameWndEx::OnSize(nType, cx, cy);
+
+	if (nType == SIZE_MINIMIZED)
+	{
+		m_gstPlayer.PausePreview(TRUE);
+	}
+	else if (nType == SIZE_RESTORED || nType == SIZE_MAXIMIZED)
+	{
+		m_gstPlayer.PausePreview(FALSE);
+	}
+}
+
+LRESULT CMainFrame::OnAoiStatsReceived(WPARAM wParam, LPARAM lParam)
+{
+	char* pAoiStatsStr = (char*) lParam;
+
+	m_gstPlayer.WritePrintPartitionsResultsToReg(pAoiStatsStr);
+	
+	free(pAoiStatsStr);
+	return 0;
+}

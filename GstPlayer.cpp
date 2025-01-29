@@ -60,6 +60,7 @@ CGstPlayer::CGstPlayer()
 	, m_bBarcodeReader(FALSE)
 	, m_bEnableBarcodeScan(FALSE)
 	, m_uBarcodeFormat(BarcodeFormat_Invalid)
+	, m_gstState(GST_STATE_NULL)
 {
 	int argc = 0;
 	char** argv = NULL;
@@ -211,11 +212,17 @@ GstPadProbeReturn CGstPlayer::BufferProbeCallback(GstPad* pPad, GstPadProbeInfo*
 	return GST_PAD_PROBE_OK;
 }
 
-void CGstPlayer::OnAoiTotalReceived(GstElement* pBarcodeReader, const gchar* pAoiTotal, gpointer pUserData)
+void CGstPlayer::OnAoiStatsReceived(GstElement* pBarcodeReader, const gchar* pAoiTotal, gpointer pUserData)
 {
 	CGstPlayer* pGstPlayer = (CGstPlayer*)pUserData;
+	char* pAoiStatsStr = _strdup(pAoiTotal);
 
-	pGstPlayer->WritePrintPartitionsResultsToReg(pAoiTotal);
+	pGstPlayer->SendAoiStats(pAoiStatsStr);
+}
+
+void CGstPlayer::SendAoiStats(const char* pAoiStatsStr)
+{
+	PostMessage(m_hParent, WM_ON_AOI_STATS_RECEIVED, NULL, (LPARAM)pAoiStatsStr);
 }
 
 void CGstPlayer::OnBarcodesReceived(GstElement* pBarcodeReader, GArray* pArray, gpointer pUserData)
@@ -318,7 +325,7 @@ BOOL CGstPlayer::StartPreview(std::string strSource, int iDeviceIndex, std::stri
 		m_pPrintAnalysis = pPrevElement;
 		SetPrintAnalysisElementOpts();
 
-		g_signal_connect(G_OBJECT(m_pPrintAnalysis), "aoi-total-signal", G_CALLBACK(OnAoiTotalReceived), this);
+		g_signal_connect(G_OBJECT(m_pPrintAnalysis), "aoi-total-signal", G_CALLBACK(OnAoiStatsReceived), this);
 	}
 
 	if (bShowFps)
@@ -358,6 +365,7 @@ BOOL CGstPlayer::StartPreview(std::string strSource, int iDeviceIndex, std::stri
 	gst_pad_add_probe(pSrcPad, GST_PAD_PROBE_TYPE_BUFFER, BufferProbeCallback, this, NULL);
 	gst_object_unref(pSrcPad);  // Release the pad after adding the probe
 
+	SetPipelineDoneFlag(FALSE);
 	gst_element_set_state(m_pPipeline, GST_STATE_PLAYING);
 
 	m_tGstMainLoopThread = std::thread(std::bind(&CGstPlayer::GstreamerPipelineRun, this));
@@ -374,6 +382,7 @@ void CGstPlayer::StopPreview()
 	if (m_pPipeline)
 	{
 		gst_element_send_event(m_pPipeline, gst_event_new_eos());
+		SetPipelineDoneFlag(TRUE);
 		m_tGstMainLoopThread.join();
 		
 		if (m_strSink == g_gstSinks[ID_SINK_OPENGL])
@@ -384,6 +393,24 @@ void CGstPlayer::StopPreview()
 		gst_object_unref(m_pPipeline);
 		m_pPipeline = NULL;
 		m_pPrintAnalysis = NULL;
+		m_gstState = GST_STATE_NULL;
+	}
+}
+
+void CGstPlayer::PausePreview(BOOL bPause)
+{
+	if (m_pPipeline)
+	{
+		if (bPause)
+		{
+			gst_element_set_state(m_pPipeline, GST_STATE_PAUSED);
+			m_gstState = GST_STATE_PAUSED;
+		}
+		else
+		{
+			gst_element_set_state(m_pPipeline, GST_STATE_PLAYING);
+			m_gstState = GST_STATE_PLAYING;
+		}
 	}
 }
 
@@ -393,11 +420,10 @@ void CGstPlayer::GstreamerPipelineRun()
 	{
 		/* Wait until error or EOS */
 		GstBus* pBus = gst_element_get_bus(m_pPipeline);
-		bool done = false;
 
-		while (!done)
+		while (!GetPipelineDoneFlag())
 		{
-			GstMessage* msg = gst_bus_timed_pop_filtered(pBus, GST_CLOCK_TIME_NONE,
+			GstMessage* msg = gst_bus_timed_pop_filtered(pBus, GST_SECOND,
 				(GstMessageType)(GST_MESSAGE_EOS | GST_MESSAGE_ERROR | GST_MESSAGE_STATE_CHANGED));
 
 			if (msg != NULL)
@@ -406,7 +432,7 @@ void CGstPlayer::GstreamerPipelineRun()
 				{
 				case GST_MESSAGE_EOS:
 					// End of stream, clean up
-					done = true;
+					SetPipelineDoneFlag(TRUE);
 					break;
 
 				case GST_MESSAGE_ERROR:
@@ -428,16 +454,17 @@ void CGstPlayer::GstreamerPipelineRun()
 					
 					g_clear_error(&err);
 					g_free(debug_info);
-					done = true;
+					SetPipelineDoneFlag(TRUE);
 					break;
 				}
 
 				case GST_MESSAGE_STATE_CHANGED:
 				{
-					GstState state;
-					GstStateChangeReturn ret = gst_element_get_state(m_pPipeline, &state, NULL, GST_CLOCK_TIME_NONE);
+					GstState currentState, pendingState;
+					GstStateChangeReturn ret = gst_element_get_state(m_pPipeline, &currentState, &pendingState, GST_CLOCK_TIME_NONE);
+					GstObject* pMsgSrc = GST_MESSAGE_SRC(msg);
 
-					if (state == GST_STATE_PLAYING && m_strSink != g_gstSinks[ID_SINK_OPENGL])
+					if (pMsgSrc == GST_OBJECT(m_pPipeline) && currentState == GST_STATE_PLAYING && pendingState == GST_STATE_VOID_PENDING && m_strSink != g_gstSinks[ID_SINK_OPENGL])
 					{
 						int iWidth = 0, iHeight = 0;
 						LPARAM iResolution = NULL;
@@ -445,7 +472,7 @@ void CGstPlayer::GstreamerPipelineRun()
 						GetCurrentResolution(iWidth, iHeight);
 
 						iResolution = MAKELONG(iWidth, iHeight);
-						SendMessage(m_hParent, WM_ON_RESIZE_WINDOW, NULL, iResolution);
+						SendMessage(m_hParent, WM_ON_RESIZE_WINDOW, 0xFF, iResolution);
 					}
 					break;
 				}
@@ -880,6 +907,14 @@ void CGstPlayer::ReadPrintPartitionsFromReg()
 		{
 			g_object_set(G_OBJECT(m_pPrintAnalysis), "analysis-type", IDC_RADIO_ANALYSIS_TOTAL - IDC_RADIO_INTENSITY, NULL);
 			g_object_set(G_OBJECT(m_pPrintAnalysis), "partitions-json", pJsonStr, NULL);
+
+			if (m_gstState == GST_STATE_PAUSED)
+			{
+				// pipeline is paused but we want to get the AOI stats
+				// so start the pipeline but do not change the m_gstState
+				// when we receive the stats we will again pause the pipeline
+				gst_element_set_state(m_pPipeline, GST_STATE_PLAYING);
+			}
 		}
 	}
 }
@@ -926,4 +961,23 @@ void CGstPlayer::WritePrintPartitionsResultsToReg(const char* pJsonStr)
 	// Clean up
 	cJSON_Delete(pJson);
 	SetPartitionsReadyFlag();
+
+	if (m_gstState == GST_STATE_PAUSED)
+	{
+		// pipeline was paused before we calculated the stats
+		// so pause it again
+		gst_element_set_state(m_pPipeline, GST_STATE_PAUSED);
+	}
+}
+
+BOOL CGstPlayer::GetPipelineDoneFlag()
+{
+	std::lock_guard<std::mutex> lock(m_mtxPipelineDone);
+	return m_bPipelineDone;
+}
+
+void CGstPlayer::SetPipelineDoneFlag(BOOL bIsDone)
+{
+	std::lock_guard<std::mutex> lock(m_mtxPipelineDone);
+	m_bPipelineDone = bIsDone;
 }

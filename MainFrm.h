@@ -125,6 +125,8 @@ protected:
 	afx_msg LRESULT OnBarcodeFound(WPARAM wParam, LPARAM lParam);
 	afx_msg VOID OnRunOCR();
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
+	afx_msg void OnSize(UINT nType, int cx, int cy);
+	afx_msg LRESULT OnAoiStatsReceived(WPARAM wParam, LPARAM lParam);
 	
 	DECLARE_MESSAGE_MAP()
 
