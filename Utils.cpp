@@ -71,7 +71,7 @@ HBITMAP CUtils::LoadPNGToHBITMAP(UINT nResourceID, int targetWidth, int targetHe
     return hBmp;
 }
 
-BOOL CUtils::SaveBGRXToJPEG(const BYTE* pBgrxData, int nWidth, int nHeight, std::wstring filename)
+BOOL CUtils::SaveBGRXToJPEG(const BYTE* pBgrxData, int nWidth, int nHeight, std::string filename)
 {
     // Step 1: Initialize GDI+ Bitmap with the BGRX data
     Bitmap bitmap(nWidth, nHeight, PixelFormat32bppRGB); // PixelFormat32bppRGB works for BGRX format
@@ -106,7 +106,7 @@ BOOL CUtils::SaveBGRXToJPEG(const BYTE* pBgrxData, int nWidth, int nHeight, std:
     if (GetEncoderClsid(L"image/jpeg", &clsid) == -1)
         return FALSE;
 
-    if (bitmap.Save(filename.c_str(), &clsid, nullptr) != Ok)
+    if (bitmap.Save(StdStringToStdWString(filename).c_str(), &clsid, nullptr) != Ok)
         return FALSE;
 
     return TRUE;
@@ -169,7 +169,7 @@ void CUtils::ConvertYUY2ToBGRX(const BYTE* pYuy22Data, BYTE* pRgbData, int nWidt
     }
 }
 
-BOOL CUtils::SaveYUY2ToJPEG(const BYTE* pYuy2Data, int nWidth, int nHeight, std::wstring filename)
+BOOL CUtils::SaveYUY2ToJPEG(const BYTE* pYuy2Data, int nWidth, int nHeight, std::string filename)
 {
     std::vector<BYTE> rgbData(nWidth * nHeight * 4);
    
@@ -178,7 +178,7 @@ BOOL CUtils::SaveYUY2ToJPEG(const BYTE* pYuy2Data, int nWidth, int nHeight, std:
     return SaveBGRXToJPEG(rgbData.data(), nWidth, nHeight, filename);
 }
 
-BOOL CUtils::SaveFrameToFile(const BYTE* pFrameBuffer, int nWidth, int nHeight, std::string format, std::wstring filename)
+BOOL CUtils::SaveFrameToFile(const BYTE* pFrameBuffer, int nWidth, int nHeight, std::string format, std::string filename)
 {
     BOOL ret = FALSE;
 
@@ -195,19 +195,16 @@ BOOL CUtils::SaveFrameToFile(const BYTE* pFrameBuffer, int nWidth, int nHeight, 
     return ret;
 }
 
-std::wstring CUtils::CStringToStdWString(CString& cstr)
+std::wstring CUtils::StdStringToStdWString(std::string& str)
 {
-    int len = cstr.GetLength() + 1;
+    int len = str.size() + 1;
     wchar_t* wcharStr = new wchar_t[len];
 
-    // Convert the ANSI `CString` to `wchar_t`
-    MultiByteToWideChar(CP_ACP, 0, cstr, -1, wcharStr, len);
+    MultiByteToWideChar(CP_ACP, 0, str.c_str(), -1, wcharStr, len);
 
-    // Create the `std::wstring` from the `wchar_t` string
     std::wstring wstr(wcharStr);
-
-    // Clean up
     delete[] wcharStr;
+
     return wstr;
 }
 
@@ -229,114 +226,31 @@ std::string CUtils::GetFormattedTime()
     return formattedTime.GetBuffer();
 }
 
-BOOL CUtils::WriteToRegistry(HKEY hKey, std::string subKey, std::string regKey, std::string regValue)
+int CUtils::GetNextFileNumberInSeq(const char* pFileDir, const char* pFileNamePrefix, const char* pExt)
 {
-    LONG lResult;
+    CString searchPath;
+    searchPath.Format("%s\\%s*.%s", pFileDir, pFileNamePrefix, pExt);
+    int iSeqNo = -1;
 
-    // Create or open the key
-    lResult = RegCreateKeyEx(hKey, subKey.c_str(), 0, NULL,
-        REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hKey, NULL);
-    
-    if (lResult == ERROR_SUCCESS)
+    CFileFind finder;
+    BOOL bFound = finder.FindFile(searchPath);
+
+    while (bFound)
     {
-        lResult = RegSetValueEx(hKey, regKey.c_str(), 0, REG_SZ, (const BYTE*)regValue.c_str(), regValue.size() + 1);
-        if (lResult != ERROR_SUCCESS)
-            return FALSE;
+        bFound = finder.FindNextFile();
+        if (finder.IsDots() || finder.IsDirectory())
+            continue;
 
-        RegCloseKey(hKey);
-    }
-    else
-    {
-        return FALSE;
-    }
+        CString fileName = finder.GetFileName();
+        int num = 0;
+        std::string filenameFormat = pFileNamePrefix + std::string("%d.") + pExt;
 
-    return TRUE;
-}
-
-BOOL CUtils::WriteToRegistry(HKEY hKey, std::string subKey, std::string regKey, DWORD regValue)
-{
-    LONG lResult;
-
-    // Create or open the key
-    lResult = RegCreateKeyEx(hKey, subKey.c_str(), 0, NULL,
-        REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hKey, NULL);
-
-    if (lResult == ERROR_SUCCESS)
-    {
-        lResult = RegSetValueEx(hKey, regKey.c_str(), 0, REG_DWORD, (const PBYTE) &regValue, sizeof(DWORD));
-        if (lResult != ERROR_SUCCESS)
-            return FALSE;
-
-        RegCloseKey(hKey);
-    }
-    else
-    {
-        return FALSE;
+        if (sscanf_s(fileName, filenameFormat.c_str(), &num) == 1)
+        {
+            if (num > iSeqNo)
+                iSeqNo = num;
+        }
     }
 
-    return TRUE;
-}
-
-BOOL CUtils::DeleteRegistryEntryTree(HKEY hKey, std::string subKey)
-{
-    LONG lResult;
-
-    // Delete the key and its subkeys
-    lResult = RegDeleteTree(hKey, subKey.c_str());
-    if (lResult == ERROR_SUCCESS)
-        return TRUE;
-    else if (lResult == ERROR_FILE_NOT_FOUND)
-        return FALSE;
-    else
-        return FALSE;
-}
-
-LONG CUtils::ReadStringFromRegistry(HKEY hKey, std::string subKey, std::string regKey, std::string& regValue)
-{
-    DWORD dwType = 0;
-    BYTE pbData[256] = { 0 };
-    DWORD dwSize = sizeof(pbData);
-
-    LONG lResult = ReadFromRegistry(hKey, subKey, regKey, dwType, pbData, dwSize);
-    if (lResult != ERROR_SUCCESS)
-        return lResult;
-
-    if (dwType != REG_SZ)
-        return ERROR_INVALID_DATA;
-
-    regValue = (char*)pbData;
-
-    return ERROR_SUCCESS;
-}
-
-LONG CUtils::ReadDwordFromRegistry(HKEY hKey, std::string subKey, std::string regKey, DWORD& regValue)
-{
-    DWORD dwType = 0;
-    DWORD dwSize = sizeof(DWORD);
-
-    LONG lResult = ReadFromRegistry(hKey, subKey, regKey, dwType, (byte*) &regValue, dwSize);
-    if (lResult != ERROR_SUCCESS)
-        return lResult;
-
-    if (dwType != REG_DWORD)
-        return ERROR_INVALID_DATA;
-
-    return ERROR_SUCCESS;
-}
-
-LONG CUtils::ReadFromRegistry(HKEY hKey, std::string subKey, std::string regKey, DWORD& dwType, BYTE* pbData, DWORD& dwSize)
-{
-    LONG lResult;
-    
-    // Open the registry key
-    lResult = RegOpenKeyEx(hKey, subKey.c_str(), 0, KEY_READ, &hKey);
-    if (lResult != ERROR_SUCCESS)
-    {
-        return lResult;
-    }
-
-    lResult = RegQueryValueEx(hKey, regKey.c_str(), NULL, &dwType, pbData, &dwSize);
-    RegCloseKey(hKey);
-    
-    return lResult;
+    return iSeqNo + 1;
 }

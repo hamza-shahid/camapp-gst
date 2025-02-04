@@ -78,9 +78,11 @@ public:
 	DeviceCapsListPtr GetDeviceCaps(std::string strSource, int iDeviceIndex);
 	HWND GetParentHwnd() { return m_hParent; }
 	
-	static LONG CheckPartitionsReadyFlag(BOOL &bReady);
-	static BOOL SetPartitionsReadyFlag();
+	static LONG CheckRegFlag(std::string flagName, BOOL& bFlag);
+	static BOOL SetRegFlag(std::string flagName);
 	
+	void ReadSnapshotInfoFromReg();
+
 	void ReadPrintPartitionsFromReg();
 	void WritePrintPartitionsResultsToReg(const char* pJsonStr);
 	void SetPrintAnalysisOpts(int nAnalysisType, int nGrayscaleType, int nBlackoutType, BOOL bConnectValues, int nAoiHeight, int nAoiPartitions);

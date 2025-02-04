@@ -212,7 +212,7 @@ GstPadProbeReturn CGstPlayer::BufferProbeCallback(GstPad* pPad, GstPadProbeInfo*
 	return GST_PAD_PROBE_OK;
 }
 
-void CGstPlayer::OnAoiStatsReceived(GstElement* pBarcodeReader, const gchar* pAoiTotal, gpointer pUserData)
+void CGstPlayer::OnAoiStatsReceived(GstElement* pPrintAnalysis, const gchar* pAoiTotal, gpointer pUserData)
 {
 	CGstPlayer* pGstPlayer = (CGstPlayer*)pUserData;
 	char* pAoiStatsStr = _strdup(pAoiTotal);
@@ -765,6 +765,14 @@ void CGstPlayer::EnableBarcodeLocation(BOOL bEnable)
 
 BOOL CGstPlayer::GetSnapshot(BYTE** ppBuffer, int& nSize, int& nWidth, int& nHeight, std::string& format)
 {
+	if (m_gstState == GST_STATE_PAUSED)
+	{
+		// pipeline is paused but we want to get the snapshot
+		// so play the pipeline but do not change the m_gstState
+		// when we receive the snapshot we will again pause the pipeline
+		gst_element_set_state(m_pPipeline, GST_STATE_PLAYING);
+	}
+
 	{
 		std::lock_guard<std::mutex> lock(m_mtxSnapshot);
 		m_bSnapshotFlag = TRUE;
@@ -811,9 +819,14 @@ void CGstPlayer::SetSnapshot(BYTE* pBuffer, int nSize, int nWidth, int nHeight, 
 		m_snapshotFormat = format;
 		m_bSnapshotFlag = FALSE;
 		m_cvSnapshot.notify_one();
+
+		if (m_gstState == GST_STATE_PAUSED)
+		{
+			// pipeline was paused before snapshot
+			// so pause it again
+			gst_element_set_state(m_pPipeline, GST_STATE_PAUSED);
+		}
 	}
-	else
-		return;
 }
 
 void CGstPlayer::SetBarcodeFormats(UINT uBarcodeFormats)
@@ -824,14 +837,72 @@ void CGstPlayer::SetBarcodeFormats(UINT uBarcodeFormats)
 		g_object_set(G_OBJECT(m_pBarcodeReader), "barcode-formats", uBarcodeFormats, NULL);
 }
 
-LONG CGstPlayer::CheckPartitionsReadyFlag(BOOL& bReady)
+LONG CGstPlayer::CheckRegFlag(std::string flagName, BOOL& bFlag)
 {
-	return CUtils::ReadDwordFromRegistry(PRINT_ANALYSIS_REG_HKEY, PRINT_ANALYSIS_REG_SUB_KEY, "ready", (DWORD&) bReady);
+	CRegKey regKey;
+
+	LSTATUS lStatus = regKey.Open(PRINT_ANALYSIS_REG_HKEY, PRINT_ANALYSIS_REG_SUB_KEY);
+	if (lStatus == ERROR_SUCCESS)
+	{
+		lStatus = regKey.QueryDWORDValue(flagName.c_str(), (DWORD&)bFlag);
+		regKey.Close();
+	}
+	
+	return lStatus;
 }
 
-BOOL CGstPlayer::SetPartitionsReadyFlag()
+BOOL CGstPlayer::SetRegFlag(std::string flagName)
 {
-	return CUtils::WriteToRegistry(PRINT_ANALYSIS_REG_HKEY, PRINT_ANALYSIS_REG_SUB_KEY, "ready", TRUE);
+	CRegKey regKey;
+
+	LSTATUS lStatus = regKey.Open(PRINT_ANALYSIS_REG_HKEY, PRINT_ANALYSIS_REG_SUB_KEY);
+	if (lStatus == ERROR_SUCCESS)
+	{
+		lStatus = regKey.SetDWORDValue(flagName.c_str(), TRUE);
+		regKey.Close();
+	}
+
+	return lStatus == ERROR_SUCCESS ? TRUE : FALSE;
+}
+
+void CGstPlayer::ReadSnapshotInfoFromReg()
+{
+	BOOL bSnapshot = TRUE;		// 0 means take snapshot
+	LONG lResult = CheckRegFlag("snapshot", bSnapshot);
+
+	if (lResult == ERROR_SUCCESS && !bSnapshot)
+	{
+		CRegKey regKey;
+
+		lResult = regKey.Open(PRINT_ANALYSIS_REG_HKEY, PRINT_ANALYSIS_REG_SUB_KEY, KEY_READ);
+
+		if (lResult == ERROR_SUCCESS)
+		{
+			char pSnapshotDir[512];
+			DWORD dwSnapshotDirSize = sizeof(pSnapshotDir);
+
+			lResult = regKey.QueryStringValue("snapshot-dir", pSnapshotDir, &dwSnapshotDirSize);
+			if (lResult == ERROR_SUCCESS)
+			{
+				BYTE* pBuffer = NULL;
+				int nSize, nWidth, nHeight;
+				std::string format;
+
+				if (GetSnapshot(&pBuffer, nSize, nWidth, nHeight, format))
+				{
+					std::string snapshotPrefix = "snap_";
+					std::string snapshotExt = "jpg";
+					int iSnapshotNo = CUtils::GetNextFileNumberInSeq(pSnapshotDir, snapshotPrefix.c_str(), snapshotExt.c_str());
+					std::string snapshotFile = std::string(pSnapshotDir) + "\\" + snapshotPrefix + std::to_string(iSnapshotNo) + "." + snapshotExt;
+					
+					if (CUtils::SaveFrameToFile(pBuffer, nWidth, nHeight, format, snapshotFile.c_str()))
+					{
+						SetRegFlag("snapshot");
+					}
+				}
+			}
+		}
+	}
 }
 
 void CGstPlayer::ReadPrintPartitionsFromReg()
@@ -839,7 +910,7 @@ void CGstPlayer::ReadPrintPartitionsFromReg()
 	char* pJsonStr = NULL;
 	int idx = 0;
 	BOOL bReady = TRUE;		// true means it's not ready
-	LONG lResult = CheckPartitionsReadyFlag(bReady);
+	LONG lResult = CheckRegFlag("ready", bReady);
 
 	// if ready flag is 0 then read the partitions
 	if (lResult == ERROR_SUCCESS && !bReady)
@@ -863,39 +934,49 @@ void CGstPlayer::ReadPrintPartitionsFromReg()
 		do
 		{
 			std::string subKey = PRINT_ANALYSIS_REG_SUB_KEY + std::string("\\") + std::to_string(idx);
-			std::string center, dimensions;
+			char pCenterStr[64], pDimensionsStr[64];
+			ULONG ulCenter = sizeof(pCenterStr);
+			ULONG ulDimensions = sizeof(pDimensionsStr);
 			int x, y, width, height;
-			DWORD id;
+			DWORD dwId;
+			CRegKey regKey;
 
-			lResult = CUtils::ReadDwordFromRegistry(PRINT_ANALYSIS_REG_HKEY, subKey, "id", id);
-			if (lResult != ERROR_SUCCESS)
-				break;
+			lResult = regKey.Open(PRINT_ANALYSIS_REG_HKEY, subKey.c_str(), KEY_READ);
+			
+			if (lResult == ERROR_SUCCESS)
+			{
+				lResult = regKey.QueryDWORDValue("id", dwId);
+				if (lResult != ERROR_SUCCESS)
+					break;
 
-			lResult = CUtils::ReadStringFromRegistry(PRINT_ANALYSIS_REG_HKEY, subKey, "center", center);
-			if (lResult != ERROR_SUCCESS)
-				break;
+				lResult = regKey.QueryStringValue("center", pCenterStr, &ulCenter);
+				if (lResult != ERROR_SUCCESS)
+					break;
 
-			lResult = CUtils::ReadStringFromRegistry(PRINT_ANALYSIS_REG_HKEY, subKey, "dimensions", dimensions);
-			if (lResult != ERROR_SUCCESS)
-				break;
+				lResult = regKey.QueryStringValue("dimensions", pDimensionsStr, &ulDimensions);
+				if (lResult != ERROR_SUCCESS)
+					break;
 
-			sscanf_s(center.c_str(), "%d,%d", &x, &y);
-			sscanf_s(dimensions.c_str(), "%dx%d", &width, &height);
+				regKey.Close();
 
-			cJSON* pPartition = cJSON_CreateObject();
-			if (!pPartition)
-				continue;
+				sscanf_s(pCenterStr, "%d,%d", &x, &y);
+				sscanf_s(pDimensionsStr, "%dx%d", &width, &height);
 
-			// Add fields to the partition object
-			cJSON_AddNumberToObject(pPartition, "id", id);
-			cJSON_AddNumberToObject(pPartition, "center_x", x);
-			cJSON_AddNumberToObject(pPartition, "center_y", y);
-			cJSON_AddNumberToObject(pPartition, "width", width);
-			cJSON_AddNumberToObject(pPartition, "height", height);
+				cJSON* pPartition = cJSON_CreateObject();
+				if (!pPartition)
+					continue;
 
-			// Add the partition to the array
-			cJSON_AddItemToArray(pPartitions, pPartition);
+				// Add fields to the partition object
+				cJSON_AddNumberToObject(pPartition, "id", dwId);
+				cJSON_AddNumberToObject(pPartition, "center_x", x);
+				cJSON_AddNumberToObject(pPartition, "center_y", y);
+				cJSON_AddNumberToObject(pPartition, "width", width);
+				cJSON_AddNumberToObject(pPartition, "height", height);
 
+				// Add the partition to the array
+				cJSON_AddItemToArray(pPartitions, pPartition);
+			}
+			
 			idx++;
 		} while (lResult == ERROR_SUCCESS);
 
@@ -938,7 +1019,8 @@ void CGstPlayer::WritePrintPartitionsResultsToReg(const char* pJsonStr)
 
 	for (int i = 0; i < nPartitions; i++)
 	{
-		BOOL bResult;
+		LSTATUS lResult;
+		CRegKey regKey;
 		cJSON* partition = cJSON_GetArrayItem(pPartitions, i);
 
 		// Extract values from each partition
@@ -951,16 +1033,23 @@ void CGstPlayer::WritePrintPartitionsResultsToReg(const char* pJsonStr)
 		
 		std::string subKey = PRINT_ANALYSIS_REG_SUB_KEY + std::string("\\") + std::to_string(id);
 		
-		bResult = CUtils::WriteToRegistry(PRINT_ANALYSIS_REG_HKEY, subKey, "total", totalStr);
-		bResult = CUtils::WriteToRegistry(PRINT_ANALYSIS_REG_HKEY, subKey, "average", averageStr);
-		bResult = CUtils::WriteToRegistry(PRINT_ANALYSIS_REG_HKEY, subKey, "min", minStr);
-		bResult = CUtils::WriteToRegistry(PRINT_ANALYSIS_REG_HKEY, subKey, "max", maxStr);
-		bResult = CUtils::WriteToRegistry(PRINT_ANALYSIS_REG_HKEY, subKey, "non-uniformity", nonUniformityStr);
+		lResult = regKey.Open(PRINT_ANALYSIS_REG_HKEY, subKey.c_str(), KEY_WRITE);
+
+		if (lResult == ERROR_SUCCESS)
+		{
+			regKey.SetStringValue("total", totalStr.c_str());
+			regKey.SetStringValue("average", averageStr.c_str());
+			regKey.SetStringValue("min", minStr.c_str());
+			regKey.SetStringValue("max", maxStr.c_str());
+			regKey.SetStringValue("non-uniformity", nonUniformityStr.c_str());
+
+			regKey.Close();
+		}
 	}
 
 	// Clean up
 	cJSON_Delete(pJson);
-	SetPartitionsReadyFlag();
+	SetRegFlag("ready");
 
 	if (m_gstState == GST_STATE_PAUSED)
 	{

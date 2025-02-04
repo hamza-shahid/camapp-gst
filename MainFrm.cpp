@@ -651,20 +651,7 @@ void CMainFrame::OnSnapshot()
 
 		if (m_gstPlayer.GetSnapshot(&pBuffer, nSize, nWidth, nHeight, format))
 		{
-			/*
-			BOOL ret = FALSE;
-
-			if (format == "BGRx")
-				ret = CUtils::SaveBGRXToJPEG(pBuffer, nWidth, nHeight, CUtils::CStringToStdWString(filePath));
-			else if (format == "YUY2")
-				ret = CUtils::SaveYUY2ToJPEG(pBuffer, nWidth, nHeight, CUtils::CStringToStdWString(filePath));
-			else
-				MessageBox("Unsupported video format");
-
-			if (!ret)
-				MessageBox("Unable to save snapshot");
-			*/
-			CUtils::SaveFrameToFile(pBuffer, nWidth, nHeight, format, CUtils::CStringToStdWString(filePath));
+			CUtils::SaveFrameToFile(pBuffer, nWidth, nHeight, format, filePath.GetBuffer());
 		}
 		else
 		{
@@ -727,23 +714,35 @@ LRESULT CMainFrame::OnBarcodeFound(WPARAM wParam, LPARAM lParam)
 {
 	BarcodeList* pBarcodeList = (BarcodeList*) lParam;
 	CString appName;
+	CRegKey regKey;
 
 	appName.LoadString(AFX_IDS_APP_TITLE);
-	std::string subKey = std::string("Software\\") + appName.GetBuffer() + "\\Barcodes";
+	std::string subKey = std::string("Software\\") + appName.GetBuffer();
 
-	BOOL bRet = CUtils::DeleteRegistryEntryTree(HKEY_LOCAL_MACHINE, subKey);
-	int nBarcodeIdx = 0;
-
-	for (BarcodeInfoPtr pBarcodeInfo : *pBarcodeList)
+	if (regKey.Open(HKEY_CURRENT_USER, subKey.c_str()) == ERROR_SUCCESS)
 	{
-		std::string subSubKey = subKey + "\\" + std::to_string(nBarcodeIdx);
+		if (regKey.RecurseDeleteKey("Barcodes") == ERROR_SUCCESS)
+		{
+			// delete Barcodes subkey
+			regKey.Close();
 
-		m_wndOutputPane.AppendOutput(pBarcodeInfo->barcode, pBarcodeInfo->format);
-		
-		bRet = CUtils::WriteToRegistry(HKEY_LOCAL_MACHINE, subSubKey, "Barcode", pBarcodeInfo->barcode);
-		bRet = CUtils::WriteToRegistry(HKEY_LOCAL_MACHINE, subSubKey, "Format", pBarcodeInfo->format);
+			int nBarcodeIdx = 0;
+			subKey += "\\Barcodes";
 
-		nBarcodeIdx++;
+			for (BarcodeInfoPtr pBarcodeInfo : *pBarcodeList)
+			{
+				std::string subSubKey = subKey + "\\" + std::to_string(nBarcodeIdx);
+
+				m_wndOutputPane.AppendOutput(pBarcodeInfo->barcode, pBarcodeInfo->format);
+
+				if (regKey.Create(HKEY_CURRENT_USER, subSubKey.c_str()) == ERROR_SUCCESS)
+				{
+					regKey.SetStringValue("Barcode", pBarcodeInfo->barcode.c_str());
+					regKey.SetStringValue("Format", pBarcodeInfo->format.c_str());
+				}
+				nBarcodeIdx++;
+			}
+		}
 	}
 
 	delete pBarcodeList;
@@ -766,7 +765,10 @@ void CMainFrame::OnTimer(UINT_PTR nIDEvent)
 	if (nIDEvent == AOI_TOTAL_TIMER_ID)
 	{
 		if (m_bPreviewEnabled)
+		{
 			m_gstPlayer.ReadPrintPartitionsFromReg();
+			m_gstPlayer.ReadSnapshotInfoFromReg();
+		}
 	}
 	else
 	{
