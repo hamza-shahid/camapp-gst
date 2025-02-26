@@ -7,6 +7,7 @@
 #include "GstPlayer.h"
 #include "DeviceCapsDlg.h"
 #include "PrintAnalysisOptsDlg.h"
+#include "RegistryManager.h"
 #include "VideoProcAmpPage.h"
 #include "CameraControlsPage.h"
 #include "BarcodeTypesDlg.h"
@@ -43,6 +44,8 @@ protected:
 	void AddToolbarButton(int nCommandId, int nResourceIdDefault, int nResourceIdPressed = -1, CString strBtnText = "");
 	void ToggleToolbarButton(int nBtnCommandId);
 
+	void EnableBarcodeScan();
+
 // Attributes
 public:
 
@@ -72,12 +75,14 @@ protected:  // control bar embedded members
 	CChildView				m_wndView;
 	CDeviceCapsDlg			m_deviceCapsDlg;
 	CPrintAnalysisOptsDlg	m_printAnalysisOptsDlg;
+	CRegistryManager		m_registryManager;
 	ToolbarBtnList			m_toolbarBtnList;
 	BarcodeList				m_barcodeList;
 
 	int			m_iSelectedCam;
 	BOOL		m_bPreviewEnabled;
 	BOOL		m_bBarcodeScanEnabled;
+	BOOL		m_bRegBarcodeScanEnabled;
 	BOOL		m_bBarcodeShowLocation;
 	BOOL		m_bBarcodeReaderAvailable;
 	BOOL		m_bShowFps;
@@ -124,10 +129,14 @@ protected:
 	afx_msg void OnBarcodeTypesToScan();
 	afx_msg LRESULT OnBarcodeFound(WPARAM wParam, LPARAM lParam);
 	afx_msg VOID OnRunOCR();
-	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg void OnSize(UINT nType, int cx, int cy);
 	afx_msg LRESULT OnAoiStatsReceived(WPARAM wParam, LPARAM lParam);
-	
-	DECLARE_MESSAGE_MAP()
+	afx_msg LRESULT OnChildLButtonUp(WPARAM wParam, LPARAM lParam);
+	afx_msg void OnRegistrySettings();
+	afx_msg LRESULT OnAoiPartitionsReady(WPARAM wParam, LPARAM lParam);
+	afx_msg LRESULT OnRegistrySnapshot(WPARAM wParam, LPARAM lParam);
+	afx_msg LRESULT OnBarcodeScanReg(WPARAM wParam, LPARAM lParam);
+	afx_msg void OnClose();
 
+	DECLARE_MESSAGE_MAP()
 };

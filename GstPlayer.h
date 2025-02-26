@@ -6,6 +6,7 @@
 #include <thread>
 #include <unordered_map>
 #include <mutex>
+#include "BarcodeFormat.h"
 
 
 #define WM_ON_RESIZE_WINDOW (WM_USER + 1)
@@ -15,15 +16,6 @@
 #define WM_ON_BARCODE_FOUND (WM_USER + 5)
 #define WM_ON_AOI_STATS_RECEIVED (WM_USER + 6)
 
-
-struct BarcodeInfo
-{
-	std::string barcode;
-	std::string format;
-};
-
-typedef std::shared_ptr< BarcodeInfo > BarcodeInfoPtr;
-typedef std::vector< BarcodeInfoPtr > BarcodeList;
 
 typedef std::vector< std::string > StringList;
 typedef std::pair< int, int > Fraction;
@@ -78,13 +70,7 @@ public:
 	DeviceCapsListPtr GetDeviceCaps(std::string strSource, int iDeviceIndex);
 	HWND GetParentHwnd() { return m_hParent; }
 	
-	static LONG CheckRegFlag(std::string flagName, BOOL& bFlag);
-	static BOOL SetRegFlag(std::string flagName);
-	
-	void ReadSnapshotInfoFromReg();
-
-	void ReadPrintPartitionsFromReg();
-	void WritePrintPartitionsResultsToReg(const char* pJsonStr);
+	void ProcessPrintPartitions(const char* pPartitionsJson);
 	void SetPrintAnalysisOpts(int nAnalysisType, int nGrayscaleType, int nBlackoutType, BOOL bConnectValues, int nAoiHeight, int nAoiPartitions);
 
 	BOOL GetSnapshot(BYTE** ppBuffer, int& nSize, int& nWidth, int& nHeight, std::string& format);

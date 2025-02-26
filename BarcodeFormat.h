@@ -1,5 +1,9 @@
 #pragma once
 
+#include <string>
+#include <vector>
+#include <memory>
+
 typedef enum
 {
 	BarcodeFormat_None = 0,
@@ -36,3 +40,12 @@ typedef enum
 
 	BarcodeFormat_Invalid = 0xFFFFFFFFu
 } BarcodeFormat;
+
+struct BarcodeInfo
+{
+	std::string barcode;
+	std::string format;
+};
+
+typedef std::shared_ptr< BarcodeInfo > BarcodeInfoPtr;
+typedef std::vector< BarcodeInfoPtr > BarcodeList;

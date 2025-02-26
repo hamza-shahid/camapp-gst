@@ -37,10 +37,10 @@
 #define IDB_PNG_LOCATION                341
 #define IDD_DIALOG_BARCODE_TYPES        342
 #define IDB_PNG_LOCATION_OFF            344
-#define IDB_PNG2                        345
 #define IDB_PNG_BARCODE_FORMATS         345
 #define IDR_BARCODE_OUTPUT_POPUP        346
 #define IDB_PNG_OCR                     347
+#define IDD_DIALOG_REG_SETTINGS         348
 #define IDC_FORMAT                      1001
 #define IDC_STATIC_FORMAT               1002
 #define IDC_COMBO_FRAME_SIZE            1003
@@ -111,6 +111,22 @@
 #define IDC_CHECK_BARCODE_MICRO_QR_CODE 1118
 #define IDC_CHECK_BARCODE_RM_QR_CODE    1119
 #define IDC_STATIC_ALL_CODES            1120
+#define IDC_STATIC_REG_SETTINGS         1121
+#define IDC_STATIC_REG_PARENT_KEY       1122
+#define IDC_COMBO_REG_AOI_PARENT_KEY    1123
+#define IDC_STATIC_REG_SUB_KEY          1124
+#define IDC_EDIT_REG_SUB_KEY            1125
+#define IDC_STATIC_AOI_FLAG             1126
+#define IDC_EDIT_REG_AOI_FLAG           1127
+#define IDC_STATIC_REG_SNAPSHOT_FLAG    1128
+#define IDC_EDIT_REG_SNAPSHOT_FLAG      1129
+#define IDC_EDIT_REG_SNAPSHOT_DIR       1130
+#define IDC_STATIC_BARCODE_FLAG         1131
+#define IDC_GROUP_REG_GENERAL           1132
+#define IDC_GROUP_REG_PRINT_ANALYSIS    1133
+#define IDC_GROUP_REG_SNAPSHOT          1134
+#define IDC_EDIT_REG_BARCODE_FLAG       1135
+#define IDC_GROUP_REG_BARCODE           1136
 #define IDC_GROUP_ANALYSIS_TYPE         2001
 #define IDC_RADIO_INTENSITY             2002
 #define IDC_RADIO_MEAN                  2003
@@ -190,6 +206,7 @@
 #define ID_POPUP_COPY                   32794
 #define ID_POPUP_DELETE                 32795
 #define ID_OCR_RUN_OCR                  32799
+#define ID_OPTIONS_REGISTRYSETTINGS     32800
 #define ID_DEVICE_START                 33000
 #define ID_VIEW_BARCODEWND              33001
 
@@ -197,9 +214,9 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        348
-#define _APS_NEXT_COMMAND_VALUE         32800
-#define _APS_NEXT_CONTROL_VALUE         1121
+#define _APS_NEXT_RESOURCE_VALUE        350
+#define _APS_NEXT_COMMAND_VALUE         32801
+#define _APS_NEXT_CONTROL_VALUE         1135
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif

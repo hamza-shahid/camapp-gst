@@ -7,6 +7,8 @@
 
 #include "GstPlayer.h"
 
+#define WM_ON_CHILD_LBUTTONUP (WM_USER + 31)
+
 // CChildView window
 
 class CChildView : public CWnd
@@ -35,6 +37,8 @@ public:
 protected:
 	afx_msg void OnPaint();
 	afx_msg void OnSize(UINT nType, int cx, int cy);
+	afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
+
 	DECLARE_MESSAGE_MAP()
 
 protected:

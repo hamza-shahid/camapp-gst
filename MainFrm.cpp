@@ -25,7 +25,6 @@
 #define ID_MENU_BARCODE					5
 
 
-#define AOI_TOTAL_TIMER_ID 4096
 // CMainFrame
 
 IMPLEMENT_DYNAMIC(CMainFrame, CFrameWndEx)
@@ -38,7 +37,9 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWndEx)
 	ON_COMMAND_RANGE(ID_SINK_AUTO, ID_SINK_OPENGL, &CMainFrame::OnSinkSelect)
 	ON_COMMAND(ID_OPTIONS_PREVIEW, &CMainFrame::OnPreview)
 	ON_COMMAND(ID_OPTIONS_SNAPSHOT, &CMainFrame::OnSnapshot)
+	ON_COMMAND(ID_OPTIONS_REGISTRYSETTINGS, &CMainFrame::OnRegistrySettings)
 	ON_COMMAND(ID_BARCODE_SCAN, &CMainFrame::OnBarcodeScan)
+	ON_MESSAGE(WM_BARCODE_SCAN_REG, &CMainFrame::OnBarcodeScanReg)
 	ON_COMMAND(ID_BARCODE_SHOW_LOCATION, &CMainFrame::OnBarcodeShowLocation)
 	ON_MESSAGE(WM_ON_RESIZE_WINDOW, &CMainFrame::OnResizeWindow)
 	ON_MESSAGE(WM_ON_OPENGL_WINDOW_CLOSE, &CMainFrame::OnOpenGlWindowClose)
@@ -58,9 +59,12 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWndEx)
 	ON_COMMAND(ID_BARCODE_TYPES, &CMainFrame::OnBarcodeTypesToScan)
 	ON_MESSAGE(WM_ON_BARCODE_FOUND, &CMainFrame::OnBarcodeFound)
 	ON_COMMAND(ID_OCR_RUN_OCR, &CMainFrame::OnRunOCR)
-	ON_WM_TIMER()
 	ON_WM_SIZE()
 	ON_MESSAGE(WM_ON_AOI_STATS_RECEIVED, &CMainFrame::OnAoiStatsReceived)
+	ON_MESSAGE(WM_ON_CHILD_LBUTTONUP, &CMainFrame::OnChildLButtonUp)
+	ON_MESSAGE(WM_PRINT_ANALYSIS_AOI_PARTITIONS_READY, &CMainFrame::OnAoiPartitionsReady)
+	ON_MESSAGE(WM_TAKE_SNAPSHOT, &CMainFrame::OnRegistrySnapshot)
+	ON_WM_CLOSE()
 END_MESSAGE_MAP()
 
 static UINT indicators[] =
@@ -79,6 +83,7 @@ CMainFrame::CMainFrame() noexcept
 	, m_bBarcodeScanEnabled(FALSE)
 	, m_bBarcodeShowLocation(TRUE)
 	, m_bBarcodeReaderAvailable(TRUE)
+	, m_bRegBarcodeScanEnabled(FALSE)
 {
 	m_bAutoMenuEnable = FALSE;
 	m_bPreviewEnabled = FALSE;
@@ -103,8 +108,6 @@ CMainFrame::~CMainFrame()
 		m_gstPlayer.StopPreview();
 
 	CoUninitialize();
-
-	KillTimer(AOI_TOTAL_TIMER_ID);
 }
 
 void CMainFrame::AddToolbarButton(int nCommandId, int nResourceIdDefault, int nResourceIdPressed, CString strBtnText)
@@ -245,7 +248,7 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	CDockingManager::SetDockingMode(DT_SMART);
 	RedrawWindow(nullptr, nullptr, RDW_ALLCHILDREN | RDW_INVALIDATE | RDW_UPDATENOW | RDW_FRAME | RDW_ERASE);
 
-	SetTimer(AOI_TOTAL_TIMER_ID, 1000, nullptr);
+	m_registryManager.StartMonitoring(this);
 
 	return 0;
 }
@@ -660,6 +663,11 @@ void CMainFrame::OnSnapshot()
 	}
 }
 
+void CMainFrame::OnRegistrySettings()
+{
+	m_registryManager.DoModal();
+}
+
 void CMainFrame::OnUpdateSnapshotToolbarBtn(CCmdUI* pCmdUI)
 {
 	pCmdUI->Enable(m_bPreviewEnabled);
@@ -684,7 +692,21 @@ void CMainFrame::OnBarcodeScan()
 	pBarcodeMenu->EnableMenuItem(ID_BARCODE_SHOW_LOCATION, m_bBarcodeScanEnabled ? MF_ENABLED : MF_DISABLED);
 	ToggleToolbarButton(ID_BARCODE_SCAN);
 
+	m_wndToolBar.Invalidate();
+	m_wndToolBar.UpdateWindow();
+
 	m_gstPlayer.EnableBarcodeScan(m_bBarcodeScanEnabled);
+}
+
+LRESULT CMainFrame::OnBarcodeScanReg(WPARAM wParam, LPARAM lParam)
+{
+	if (!m_bBarcodeScanEnabled)
+	{
+		OnBarcodeScan();
+		m_bRegBarcodeScanEnabled = TRUE;
+	}
+
+	return 0;
 }
 
 void CMainFrame::OnUpdateShowLocationToolbarBtn(CCmdUI* pCmdUI)
@@ -713,39 +735,20 @@ void CMainFrame::OnBarcodeTypesToScan()
 LRESULT CMainFrame::OnBarcodeFound(WPARAM wParam, LPARAM lParam)
 {
 	BarcodeList* pBarcodeList = (BarcodeList*) lParam;
-	CString appName;
-	CRegKey regKey;
 
-	appName.LoadString(AFX_IDS_APP_TITLE);
-	std::string subKey = std::string("Software\\") + appName.GetBuffer();
+	m_registryManager.WriteBarcodesToReg(pBarcodeList);
 
-	if (regKey.Open(HKEY_CURRENT_USER, subKey.c_str()) == ERROR_SUCCESS)
-	{
-		if (regKey.RecurseDeleteKey("Barcodes") == ERROR_SUCCESS)
-		{
-			// delete Barcodes subkey
-			regKey.Close();
-
-			int nBarcodeIdx = 0;
-			subKey += "\\Barcodes";
-
-			for (BarcodeInfoPtr pBarcodeInfo : *pBarcodeList)
-			{
-				std::string subSubKey = subKey + "\\" + std::to_string(nBarcodeIdx);
-
-				m_wndOutputPane.AppendOutput(pBarcodeInfo->barcode, pBarcodeInfo->format);
-
-				if (regKey.Create(HKEY_CURRENT_USER, subSubKey.c_str()) == ERROR_SUCCESS)
-				{
-					regKey.SetStringValue("Barcode", pBarcodeInfo->barcode.c_str());
-					regKey.SetStringValue("Format", pBarcodeInfo->format.c_str());
-				}
-				nBarcodeIdx++;
-			}
-		}
-	}
+	// append barcodes in output pane
+	for (BarcodeInfoPtr pBarcodeInfo : *pBarcodeList)
+		m_wndOutputPane.AppendOutput(pBarcodeInfo->barcode, pBarcodeInfo->format);
 
 	delete pBarcodeList;
+
+	if (m_bRegBarcodeScanEnabled)
+	{
+		m_bRegBarcodeScanEnabled = FALSE;
+		OnBarcodeScan();
+	}
 
 	return 0;
 }
@@ -758,22 +761,6 @@ void CMainFrame::OnUpdateBarcodeScanToolbarBtn(CCmdUI* pCmdUI)
 VOID CMainFrame::OnRunOCR()
 {
 
-}
-
-void CMainFrame::OnTimer(UINT_PTR nIDEvent)
-{
-	if (nIDEvent == AOI_TOTAL_TIMER_ID)
-	{
-		if (m_bPreviewEnabled)
-		{
-			m_gstPlayer.ReadPrintPartitionsFromReg();
-			m_gstPlayer.ReadSnapshotInfoFromReg();
-		}
-	}
-	else
-	{
-		CMainFrame::OnTimer(nIDEvent); // Call the base class
-	}
 }
 
 void CMainFrame::OnSize(UINT nType, int cx, int cy)
@@ -794,8 +781,62 @@ LRESULT CMainFrame::OnAoiStatsReceived(WPARAM wParam, LPARAM lParam)
 {
 	char* pAoiStatsStr = (char*) lParam;
 
-	m_gstPlayer.WritePrintPartitionsResultsToReg(pAoiStatsStr);
+	m_registryManager.WritePrintPartitionsResultsToReg(pAoiStatsStr);
 	
 	free(pAoiStatsStr);
 	return 0;
+}
+
+LRESULT CMainFrame::OnChildLButtonUp(WPARAM wParam, LPARAM lParam)
+{
+	int x = LOWORD(lParam);
+	int y = HIWORD(lParam);
+
+	CString msg;
+	msg.Format(_T("Mouse Up in ChildView at: (%d, %d)"), x, y);
+	AfxMessageBox(msg);
+
+	return 0;
+}
+
+LRESULT CMainFrame::OnAoiPartitionsReady(WPARAM wParam, LPARAM lParam)
+{
+	if (m_bPreviewEnabled)
+	{
+		const char* pPrintPartitionsJson = m_registryManager.ReadPrintPartitionsFromReg();
+		if (pPrintPartitionsJson)
+			m_gstPlayer.ProcessPrintPartitions(pPrintPartitionsJson);
+	}
+
+	return 0;
+}
+
+LRESULT CMainFrame::OnRegistrySnapshot(WPARAM wParam, LPARAM lParam)
+{
+	BYTE* pBuffer = NULL;
+	int nSize, nWidth, nHeight;
+	std::string format;
+	const char* pSnapshotDir = (const char*)lParam;
+
+	if (m_gstPlayer.GetSnapshot(&pBuffer, nSize, nWidth, nHeight, format))
+	{
+		std::string snapshotPrefix = "snap_";
+		std::string snapshotExt = "jpg";
+		int iSnapshotNo = CUtils::GetNextFileNumberInSeq(pSnapshotDir, snapshotPrefix.c_str(), snapshotExt.c_str());
+		std::string snapshotFile = std::string(pSnapshotDir) + "\\" + snapshotPrefix + std::to_string(iSnapshotNo) + "." + snapshotExt;
+
+		if (CUtils::SaveFrameToFile(pBuffer, nWidth, nHeight, format, snapshotFile.c_str()))
+		{
+			m_registryManager.SetSnapshotFlag();
+			return ERROR_SUCCESS;
+		}
+	}
+
+	return ERROR_INVALID_DATA;
+}
+
+void CMainFrame::OnClose()
+{
+	m_registryManager.StopMonitoring();
+	CFrameWndEx::OnClose();
 }

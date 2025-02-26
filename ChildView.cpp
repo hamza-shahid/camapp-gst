@@ -29,6 +29,7 @@ CChildView::~CChildView()
 BEGIN_MESSAGE_MAP(CChildView, CWnd)
 	ON_WM_PAINT()
 	ON_WM_SIZE()
+	//ON_WM_LBUTTONUP()
 END_MESSAGE_MAP()
 
 
@@ -83,4 +84,13 @@ void CChildView::OnSize(UINT nType, int cx, int cy)
 	
 	if (m_pGstPlayer)
 		m_pGstPlayer->Redraw();
+}
+
+void CChildView::OnLButtonUp(UINT nFlags, CPoint point)
+{
+	CWnd* pMainFrame = GetParent();
+	if (pMainFrame)
+	{
+		pMainFrame->PostMessage(WM_ON_CHILD_LBUTTONUP, (WPARAM)nFlags, MAKELPARAM(point.x, point.y));
+	}
 }
