@@ -24,26 +24,10 @@ GstResource g_gstSinks = {
 	{ ID_SINK_OPENGL, "glimagesink" }
 };
 
-static std::string GetExecutableFolderPath()
-{
-	char path[MAX_PATH];
-	std::string fullPath;
-
-	if (GetModuleFileName(NULL, path, MAX_PATH)) 
-	{
-		fullPath = path;
-		size_t pos = fullPath.find_last_of("\\/");
-		if (pos != std::string::npos) {
-			return fullPath.substr(0, pos);
-		}
-	}
-	return "";
-}
-
 static BOOL LoadGstPlugin(std::string pluginName)
 {
 	GError* pPluginError = NULL;
-	std::string strPluginPath = GetExecutableFolderPath() + "\\" + pluginName + ".dll";
+	std::string strPluginPath = CUtils::GetExecutableFolderPath() + "\\" + pluginName + ".dll";
 	GstPlugin* pPlugin = gst_plugin_load_file(strPluginPath.c_str(), &pPluginError);
 
 	return pPlugin != NULL;

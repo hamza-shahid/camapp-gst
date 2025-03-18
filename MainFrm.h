@@ -136,6 +136,7 @@ protected:
 	afx_msg LRESULT OnAoiPartitionsReady(WPARAM wParam, LPARAM lParam);
 	afx_msg LRESULT OnRegistrySnapshot(WPARAM wParam, LPARAM lParam);
 	afx_msg LRESULT OnBarcodeScanReg(WPARAM wParam, LPARAM lParam);
+	LRESULT OnStartStopPreviewReg(WPARAM wParam, LPARAM lParam);
 	afx_msg void OnClose();
 
 	DECLARE_MESSAGE_MAP()

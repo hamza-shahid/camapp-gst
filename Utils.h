@@ -14,6 +14,8 @@ private:
 	static BOOL SaveYUY2ToJPEG(const BYTE* pYuy2Data, int nWidth, int nHeight, std::string filename);
 
 public:
+	static std::string GetExecutableFolderPath();
+
 	static void InitGdiPlus();
 	static void DeInitGdiPlus();
 	
@@ -24,6 +26,8 @@ public:
 	static HBITMAP LoadPNGToHBITMAP(UINT nResourceID, int targetWidth = 40, int targetHeight = 40);
 
 	static std::string GetFormattedTime();
+
+	static void LogToFile(const std::string& message);
 
 private:
 	static ULONG_PTR m_pGiplusToken;

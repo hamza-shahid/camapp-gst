@@ -4,6 +4,7 @@
 #include <gdiplus.h>
 #include <algorithm>
 #include <vector>
+#include <fstream>
 
 
 using namespace Gdiplus;
@@ -224,6 +225,33 @@ std::string CUtils::GetFormattedTime()
         st.wMilliseconds);
 
     return formattedTime.GetBuffer();
+}
+
+std::string CUtils::GetExecutableFolderPath()
+{
+    char path[MAX_PATH];
+    std::string fullPath;
+
+    if (GetModuleFileName(NULL, path, MAX_PATH))
+    {
+        fullPath = path;
+        size_t pos = fullPath.find_last_of("\\/");
+        if (pos != std::string::npos) {
+            return fullPath.substr(0, pos);
+        }
+    }
+    return "";
+}
+
+void CUtils::LogToFile(const std::string& message)
+{
+    std::string filename = GetExecutableFolderPath() + "\\" + std::string("camapp_") + CTime::GetCurrentTime().Format("%Y-%m-%d").GetBuffer() + std::string(".log");
+    std::ofstream file(filename, std::ios::app);
+    
+    if (file)
+    {
+        file << "[" << GetFormattedTime() << "] " << message << std::endl;
+    }
 }
 
 int CUtils::GetNextFileNumberInSeq(const char* pFileDir, const char* pFileNamePrefix, const char* pExt)

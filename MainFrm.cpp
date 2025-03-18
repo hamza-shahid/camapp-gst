@@ -64,6 +64,7 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWndEx)
 	ON_MESSAGE(WM_ON_CHILD_LBUTTONUP, &CMainFrame::OnChildLButtonUp)
 	ON_MESSAGE(WM_PRINT_ANALYSIS_AOI_PARTITIONS_READY, &CMainFrame::OnAoiPartitionsReady)
 	ON_MESSAGE(WM_TAKE_SNAPSHOT, &CMainFrame::OnRegistrySnapshot)
+	ON_MESSAGE(WM_START_STOP_PREVIEW_REG, &CMainFrame::OnStartStopPreviewReg)
 	ON_WM_CLOSE()
 END_MESSAGE_MAP()
 
@@ -700,7 +701,7 @@ void CMainFrame::OnBarcodeScan()
 
 LRESULT CMainFrame::OnBarcodeScanReg(WPARAM wParam, LPARAM lParam)
 {
-	if (!m_bBarcodeScanEnabled)
+	if (!m_bBarcodeScanEnabled && (DWORD)lParam == 0)
 	{
 		OnBarcodeScan();
 		m_bRegBarcodeScanEnabled = TRUE;
@@ -801,7 +802,7 @@ LRESULT CMainFrame::OnChildLButtonUp(WPARAM wParam, LPARAM lParam)
 
 LRESULT CMainFrame::OnAoiPartitionsReady(WPARAM wParam, LPARAM lParam)
 {
-	if (m_bPreviewEnabled)
+	if (m_bPreviewEnabled && (DWORD)lParam == 0)
 	{
 		const char* pPrintPartitionsJson = m_registryManager.ReadPrintPartitionsFromReg();
 		if (pPrintPartitionsJson)
@@ -813,26 +814,43 @@ LRESULT CMainFrame::OnAoiPartitionsReady(WPARAM wParam, LPARAM lParam)
 
 LRESULT CMainFrame::OnRegistrySnapshot(WPARAM wParam, LPARAM lParam)
 {
-	BYTE* pBuffer = NULL;
-	int nSize, nWidth, nHeight;
-	std::string format;
-	const char* pSnapshotDir = (const char*)lParam;
-
-	if (m_gstPlayer.GetSnapshot(&pBuffer, nSize, nWidth, nHeight, format))
+	if (m_bPreviewEnabled && (DWORD)lParam == 0)
 	{
-		std::string snapshotPrefix = "snap_";
-		std::string snapshotExt = "jpg";
-		int iSnapshotNo = CUtils::GetNextFileNumberInSeq(pSnapshotDir, snapshotPrefix.c_str(), snapshotExt.c_str());
-		std::string snapshotFile = std::string(pSnapshotDir) + "\\" + snapshotPrefix + std::to_string(iSnapshotNo) + "." + snapshotExt;
+		BYTE* pBuffer = NULL;
+		int nSize, nWidth, nHeight;
+		std::string format, snapshotDir;
+		//const char* pSnapshotDir = (const char*)lParam;
 
-		if (CUtils::SaveFrameToFile(pBuffer, nWidth, nHeight, format, snapshotFile.c_str()))
+		if (m_registryManager.GetSnapshotDir(snapshotDir) == ERROR_SUCCESS)
 		{
-			m_registryManager.SetSnapshotFlag();
-			return ERROR_SUCCESS;
+			if (m_gstPlayer.GetSnapshot(&pBuffer, nSize, nWidth, nHeight, format))
+			{
+				std::string snapshotPrefix = "snap_";
+				std::string snapshotExt = "jpg";
+				int iSnapshotNo = CUtils::GetNextFileNumberInSeq(snapshotDir.c_str(), snapshotPrefix.c_str(), snapshotExt.c_str());
+				std::string snapshotFile = snapshotDir + "\\" + snapshotPrefix + std::to_string(iSnapshotNo) + "." + snapshotExt;
+
+				if (CUtils::SaveFrameToFile(pBuffer, nWidth, nHeight, format, snapshotFile.c_str()))
+				{
+					m_registryManager.SetSnapshotFlag();
+				}
+			}
 		}
 	}
 
-	return ERROR_INVALID_DATA;
+	return 0;
+}
+
+LRESULT CMainFrame::OnStartStopPreviewReg(WPARAM wParam, LPARAM lParam)
+{
+	BOOL bStartStopFlag = (BOOL)lParam;
+
+	if ((m_bPreviewEnabled && bStartStopFlag == FALSE) || (!m_bPreviewEnabled && bStartStopFlag == TRUE))
+	{
+		OnPreview();
+	}
+
+	return 0;
 }
 
 void CMainFrame::OnClose()
