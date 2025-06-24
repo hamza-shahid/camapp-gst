@@ -730,7 +730,11 @@ void CMainFrame::OnBarcodeShowLocation()
 void CMainFrame::OnBarcodeTypesToScan()
 {
 	if (m_dlgBarcodeTypes.DoModal() == IDOK)
+	{
 		m_gstPlayer.SetBarcodeFormats(m_dlgBarcodeTypes.GetBarcodeFormats());
+		m_gstPlayer.SetBarcodeColumnStartX(m_dlgBarcodeTypes.GetBarcodeColumnStartX());
+		m_gstPlayer.SetBarcodeColumnWidth(m_dlgBarcodeTypes.GetBarcodeColumnWidth());
+	}
 }
 
 LRESULT CMainFrame::OnBarcodeFound(WPARAM wParam, LPARAM lParam)

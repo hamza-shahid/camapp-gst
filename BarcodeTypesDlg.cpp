@@ -28,6 +28,8 @@ CBarcodeTypesDlg::CBarcodeTypesDlg(CWnd* pParent /*=nullptr*/)
 	, m_bAllCodesEnabled(TRUE)
 	, m_bLinearCodeEnabled(TRUE)
 	, m_bMatrixCodeEnabled(TRUE)
+	, m_barcodeColStartX(0)
+	, m_barcodeColumnWidth(0)
 {
 	m_barcodeMap[IDC_CHECK_BARCODE_AZTEC] = BarcodeFormat_Aztec;
 	m_barcodeMap[IDC_CHECK_BARCODE_CODABAR] = BarcodeFormat_Codabar;
@@ -61,7 +63,7 @@ CBarcodeTypesDlg::~CBarcodeTypesDlg()
 void CBarcodeTypesDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
-	
+
 	DDX_Check(pDX, IDC_CHECK_BARCODE_ALL, m_bAllCodesEnabled);
 	DDX_Check(pDX, IDC_CHECK_BARCODE_LINEAR, m_bLinearCodeEnabled);
 	DDX_Check(pDX, IDC_CHECK_BARCODE_MATRIX, m_bMatrixCodeEnabled);
@@ -85,6 +87,10 @@ void CBarcodeTypesDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Check(pDX, IDC_CHECK_BARCODE_RM_QR_CODE, m_bRMQRCodeEnabled);
 	DDX_Check(pDX, IDC_CHECK_BARCODE_DX_FILM_EDGE, m_bDXFilmEdgeEnabled);
 	DDX_Check(pDX, IDC_CHECK_BARCODE_DATABAR_LIMITED, m_bDataBarLimited);
+	DDX_Text(pDX, IDC_EDIT_COLUMN_START_X, m_barcodeColStartX);
+	DDV_MinMaxUInt(pDX, m_barcodeColStartX, 0, UINT_MAX);
+	DDX_Text(pDX, IDC_EDIT_COLUMN_WIDTH, m_barcodeColumnWidth);
+	DDV_MinMaxUInt(pDX, m_barcodeColumnWidth, 0, UINT_MAX);
 }
 
 BOOL CBarcodeTypesDlg::OnInitDialog()
@@ -113,6 +119,16 @@ void CBarcodeTypesDlg::EnableMatrixCodes(bool bEnable)
 UINT CBarcodeTypesDlg::GetBarcodeFormats()
 {
 	return m_uBarcodeFormats;
+}
+
+UINT CBarcodeTypesDlg::GetBarcodeColumnStartX()
+{
+	return m_barcodeColStartX;
+}
+
+UINT CBarcodeTypesDlg::GetBarcodeColumnWidth()
+{
+	return m_barcodeColumnWidth;
 }
 
 // CBarcodeTypesDlg message handlers

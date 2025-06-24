@@ -39,6 +39,8 @@ CGstPlayer::CGstPlayer()
 	, m_bBarcodeReader(FALSE)
 	, m_bEnableBarcodeScan(FALSE)
 	, m_uBarcodeFormat(BarcodeFormat_Invalid)
+	, m_uBarcodeColumnStartX(0)
+	, m_uBarcodeColumnWidth(0)
 	, m_gstState(GST_STATE_NULL)
 {
 	int argc = 0;
@@ -298,6 +300,9 @@ BOOL CGstPlayer::StartPreview(std::string strSource, int iDeviceIndex, std::stri
 		ADD_ELEMENT_WITH_ERR_CHECK("barcodereader", "barcode-reader", "", NULL, pPrevElement, &pPrevElement, strError);
 		m_pBarcodeReader = pPrevElement;
 		g_object_set(G_OBJECT(m_pBarcodeReader), "enable-reader", m_bEnableBarcodeScan, NULL);
+
+		g_object_set(G_OBJECT(m_pBarcodeReader), "coi-start-x", m_uBarcodeColumnStartX, NULL);
+		g_object_set(G_OBJECT(m_pBarcodeReader), "coi-width", m_uBarcodeColumnWidth, NULL);
 
 		if (m_uBarcodeFormat != BarcodeFormat_Invalid)
 			g_object_set(G_OBJECT(m_pBarcodeReader), "barcode-formats", m_uBarcodeFormat, NULL);
@@ -821,6 +826,22 @@ void CGstPlayer::SetBarcodeFormats(UINT uBarcodeFormats)
 
 	if (m_pBarcodeReader)
 		g_object_set(G_OBJECT(m_pBarcodeReader), "barcode-formats", uBarcodeFormats, NULL);
+}
+
+void CGstPlayer::SetBarcodeColumnStartX(UINT uBarcodeColumnStartX)
+{
+	m_uBarcodeColumnStartX = uBarcodeColumnStartX;
+
+	if (m_pBarcodeReader)
+		g_object_set(G_OBJECT(m_pBarcodeReader), "coi-start-x", m_uBarcodeColumnStartX, NULL);
+}
+
+void CGstPlayer::SetBarcodeColumnWidth(UINT uBarcodeColumnWidth)
+{
+	m_uBarcodeColumnWidth = uBarcodeColumnWidth;
+
+	if (m_pBarcodeReader)
+		g_object_set(G_OBJECT(m_pBarcodeReader), "coi-width", m_uBarcodeColumnWidth, NULL);
 }
 
 void CGstPlayer::ProcessPrintPartitions(const char* pPartitionsJson)

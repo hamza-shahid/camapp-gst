@@ -15,6 +15,8 @@ public:
 	virtual ~CBarcodeTypesDlg();
 
 	UINT GetBarcodeFormats();
+	UINT GetBarcodeColumnStartX();
+	UINT GetBarcodeColumnWidth();
 
 // Dialog Data
 #ifdef AFX_DESIGN_TIME
@@ -63,4 +65,7 @@ public:
 	afx_msg void OnBnClickedCheckBarcodeLinear();
 	afx_msg void OnBnClickedCheckBarcodeMatrix();
 	afx_msg void OnBnClickedOk();
+protected:
+	unsigned int m_barcodeColStartX;
+	unsigned int m_barcodeColumnWidth;
 };

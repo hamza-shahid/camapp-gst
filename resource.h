@@ -130,6 +130,11 @@
 #define IDC_GROUP_REG_PREVIEW           1137
 #define IDC_STATIC_REG_START_STOP_FLAG  1138
 #define IDC_EDIT_REG_START_STOP_FLAG    1139
+#define IDC_GROUP_BARCODE_AOI           1140
+#define IDC_STATIC_COLUMN_START_X       1141
+#define IDC_EDIT_COLUMN_START_X         1142
+#define IDC_STATIC_COLUMN_WIDTH         1143
+#define IDC_EDIT_COLUMN_WIDTH           1144
 #define IDC_GROUP_ANALYSIS_TYPE         2001
 #define IDC_RADIO_INTENSITY             2002
 #define IDC_RADIO_MEAN                  2003
@@ -219,7 +224,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        350
 #define _APS_NEXT_COMMAND_VALUE         32801
-#define _APS_NEXT_CONTROL_VALUE         1138
+#define _APS_NEXT_CONTROL_VALUE         1145
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif

@@ -78,6 +78,8 @@ public:
 	void EnableBarcodeScan(BOOL bEnable = TRUE);
 	void EnableBarcodeLocation(BOOL bEnable = TRUE);
 	void SetBarcodeFormats(UINT uBarcodeFormats);
+	void SetBarcodeColumnStartX(UINT uBarcodeColumnStartX);
+	void SetBarcodeColumnWidth(UINT uBarcodeColumnWidth);
 
 	BOOL GetPipelineDoneFlag();
 	void SetPipelineDoneFlag(BOOL bIsDone);
@@ -124,6 +126,8 @@ private:
 	BOOL		m_bBarcodeReader;
 	BOOL		m_bEnableBarcodeScan;
 	UINT		m_uBarcodeFormat;
+	UINT		m_uBarcodeColumnStartX;
+	UINT		m_uBarcodeColumnWidth;
 	std::mutex	m_mtxPipelineDone;
 	BOOL		m_bPipelineDone;
 	
