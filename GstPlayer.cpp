@@ -506,30 +506,76 @@ StringList CGstPlayer::GetDeviceNames()
 	return deviceNames;
 }
 
-void CGstPlayer::AddFramerateToResolution(ResolutionPtr pResolution, int iFramerateNum, int iFramerateDen)
+void AddFramerateIfNotExists(FramerateListPtr pFramerateList, gint iFramerateNum, gint iFramerateDen)
 {
-	FramerateListPtr framerateList = pResolution->m_framerates;
-
 	FramerateList::iterator framerateIt = find_if(
-		framerateList->begin(),
-		framerateList->end(),
+		pFramerateList->begin(),
+		pFramerateList->end(),
 		[iFramerateNum, iFramerateDen](FractionPtr pFramerate) {
 			return (pFramerate->first == iFramerateNum && pFramerate->second == iFramerateDen);
 		}
 	);
 
-	if (framerateIt == framerateList->end())
+	if (framerateIt == pFramerateList->end())
 	{
 		// new framerate
 		FractionPtr pFramerate = std::make_shared<Fraction>();
 		pFramerate->first = iFramerateNum;
 		pFramerate->second = iFramerateDen;
 
-		framerateList->push_back(pFramerate);
+		pFramerateList->push_back(pFramerate);
 	}
 }
 
-void CGstPlayer::AddResolutionToFormat(DeviceCapsPtr pDeviceCaps, int iWidth, int iHeight, int iFramerateNum, int iFramerateDen)
+void CGstPlayer::AddFramerateToResolution(ResolutionPtr pResolution, const GValue* pFramerateValue)
+{
+	FramerateListPtr pFramerateList = pResolution->m_framerates;
+
+	if (GST_VALUE_HOLDS_FRACTION(pFramerateValue))
+	{
+		gint iFramerateNum = gst_value_get_fraction_numerator(pFramerateValue);
+		gint iFramerateDen = gst_value_get_fraction_denominator(pFramerateValue);
+
+		AddFramerateIfNotExists(pFramerateList, iFramerateNum, iFramerateDen);
+	}
+	else if (GST_VALUE_HOLDS_LIST(pFramerateValue))
+	{
+		guint count = gst_value_list_get_size(pFramerateValue);
+		for (guint j = 0; j < count; j++)
+		{
+			const GValue* pFrameratelist = gst_value_list_get_value(pFramerateValue, j);
+			if (GST_VALUE_HOLDS_FRACTION(pFrameratelist))
+			{
+				gint iFramerateNum = gst_value_get_fraction_numerator(pFrameratelist);
+				gint iFramerateDen = gst_value_get_fraction_denominator(pFrameratelist);
+
+				AddFramerateIfNotExists(pFramerateList, iFramerateNum, iFramerateDen);
+			}
+		}
+	}
+	else if (GST_VALUE_HOLDS_FRACTION_RANGE(pFramerateValue))
+	{
+		const GValue* minVal = gst_value_get_fraction_range_min(pFramerateValue);
+		const GValue* maxVal = gst_value_get_fraction_range_max(pFramerateValue);
+		gint minNum = gst_value_get_fraction_numerator(minVal);
+		gint minDen = gst_value_get_fraction_denominator(minVal);
+		gint maxNum = gst_value_get_fraction_numerator(maxVal);
+		gint maxDen = gst_value_get_fraction_denominator(maxVal);
+
+		// Convert to floating point for range calculation
+		double minFps = (double)minNum / (double)minDen;
+		double maxFps = (double)maxNum / (double)maxDen;
+		std::vector<int> commonFps = { 60, 30, 15 };
+
+		for (int fps : commonFps)
+		{
+			if (fps >= (int)ceil(minFps) && fps <= (int)floor(maxFps))
+				AddFramerateIfNotExists(pFramerateList, fps, 1);
+		}
+	}
+}
+
+void CGstPlayer::AddResolutionToFormat(DeviceCapsPtr pDeviceCaps, int iWidth, int iHeight, const GValue* pFramerateValue)
 {
 	// format already exists, check if resolution exists
 	ResolutionListPtr resolutionList = pDeviceCaps->m_resolutions;
@@ -560,7 +606,7 @@ void CGstPlayer::AddResolutionToFormat(DeviceCapsPtr pDeviceCaps, int iWidth, in
 		resolutionList->push_back(pResolution);
 	}
 
-	AddFramerateToResolution(pResolution, iFramerateNum, iFramerateDen);
+	AddFramerateToResolution(pResolution, pFramerateValue);
 }
 
 DeviceCapsListPtr CGstPlayer::GetDeviceCaps(std::string strSource, int iDeviceIndex)
@@ -598,13 +644,12 @@ DeviceCapsListPtr CGstPlayer::GetDeviceCaps(std::string strSource, int iDeviceIn
 			const GstStructure* pStructure = gst_caps_get_structure(pCaps, i);
 
 			gint iWidth, iHeight;
-			gint iFramerateNum, iFramerateDen;
 			const gchar* pcMediaType = gst_structure_get_name(pStructure);
 			gboolean bWidthFound = gst_structure_get_int(pStructure, "width", &iWidth);
 			gboolean bHeightFound = gst_structure_get_int(pStructure, "height", &iHeight);
-			gboolean bFramerateFound = gst_structure_get_fraction(pStructure, "framerate", &iFramerateNum, &iFramerateDen);
+			const GValue* pFramerateValue = gst_structure_get_value(pStructure, "framerate");
 			
-			if (pcMediaType && bWidthFound && bHeightFound && bFramerateFound)
+			if (pcMediaType && bWidthFound && bHeightFound && pFramerateValue)
 			{
 				std::string strMediaType = pcMediaType;
 				std::string strFormat;
@@ -629,14 +674,14 @@ DeviceCapsListPtr CGstPlayer::GetDeviceCaps(std::string strSource, int iDeviceIn
 					// new format
 					pDeviceCaps = std::make_shared<DeviceCaps>();
 
-					pDeviceCaps->m_strFormat	= strFormat;
-					pDeviceCaps->m_strMediaType	= strMediaType;
-					pDeviceCaps->m_resolutions	= std::make_shared< ResolutionList >();
+					pDeviceCaps->m_strFormat = strFormat;
+					pDeviceCaps->m_strMediaType = strMediaType;
+					pDeviceCaps->m_resolutions = std::make_shared< ResolutionList >();
 
 					deviceCapsList->push_back(pDeviceCaps);
 				}
 
-				AddResolutionToFormat(pDeviceCaps, iWidth, iHeight, iFramerateNum, iFramerateDen);
+				AddResolutionToFormat(pDeviceCaps, iWidth, iHeight, pFramerateValue);
 			}
 		}
 		gst_caps_unref(pCaps);

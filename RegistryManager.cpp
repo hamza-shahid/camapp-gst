@@ -16,6 +16,11 @@
 #define REG_SNAPSHOT_DIR_NAME	"snapshot-dir"
 #define REG_BARCODE_KEY_NAME	"barcode"
 #define REG_START_STOP_PREVIEW	"start-stop"
+#define REG_CAMERA_NAME_VALUE	"CameraName"
+#define REG_SOURCE_VALUE		"Source"
+#define REG_SINK_VALUE			"Sink"
+#define REG_AUTO_START			"AutoStart"
+
 
 // CRegistrySettings dialog
 
@@ -529,6 +534,58 @@ void CRegistryManager::WriteBarcodesToReg(BarcodeList* pBarcodeList)
 			SetRegFlag(m_regFlags[IDC_EDIT_REG_BARCODE_FLAG]->strRegFlagName.GetBuffer());
 		}
 	}
+}
+
+BOOL CRegistryManager::GetAppSettings(RegAppSettings& appSettings)
+{
+	CRegKey regKey;
+	LSTATUS lStatus = regKey.Create(GetParentKey(), m_strSubKey.GetBuffer());
+
+	if (lStatus != ERROR_SUCCESS)
+		return FALSE;
+
+	char pszRegStr[512];
+	ULONG unRegStrSize = sizeof(pszRegStr);
+
+	lStatus = regKey.QueryDWORDValue(REG_AUTO_START, (DWORD&) appSettings.bAutoStart);
+	if (lStatus != ERROR_SUCCESS)
+		appSettings.bAutoStart = FALSE;
+
+	lStatus = regKey.QueryStringValue(REG_CAMERA_NAME_VALUE, pszRegStr, &unRegStrSize);
+	if (lStatus == ERROR_SUCCESS)
+		appSettings.strCameraName = pszRegStr;
+
+	unRegStrSize = sizeof(pszRegStr);
+	lStatus = regKey.QueryStringValue(REG_SOURCE_VALUE, pszRegStr, &unRegStrSize);
+	if (lStatus == ERROR_SUCCESS)
+		appSettings.strSource = pszRegStr;
+
+	unRegStrSize = sizeof(pszRegStr);
+	lStatus = regKey.QueryStringValue(REG_SINK_VALUE, pszRegStr, &unRegStrSize);
+	if (lStatus == ERROR_SUCCESS)
+		appSettings.strSink = pszRegStr;
+
+	regKey.Close();
+
+	return TRUE;
+}
+
+BOOL CRegistryManager::SaveAppSettings(RegAppSettings appSettings)
+{
+	CRegKey regKey;
+	LSTATUS lStatus = regKey.Create(GetParentKey(), m_strSubKey.GetBuffer());
+
+	if (lStatus != ERROR_SUCCESS)
+		return FALSE;
+
+	lStatus = regKey.SetDWORDValue(REG_AUTO_START, appSettings.bAutoStart);
+	lStatus = regKey.SetStringValue(REG_CAMERA_NAME_VALUE, appSettings.strCameraName.c_str());
+	lStatus = regKey.SetStringValue(REG_SOURCE_VALUE, appSettings.strSource.c_str());
+	lStatus = regKey.SetStringValue(REG_SINK_VALUE, appSettings.strSink.c_str());
+
+	regKey.Close();
+
+	return TRUE;
 }
 
 BEGIN_MESSAGE_MAP(CRegistryManager, CDialogEx)

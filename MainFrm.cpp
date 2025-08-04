@@ -47,6 +47,7 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWndEx)
 	ON_COMMAND(ID_OPTIONS_CAMERAPROPERTIES, &CMainFrame::OnCameraOptions)
 	ON_COMMAND(ID_OPTIONS_CAMERASETTINGS, &CMainFrame::OnCameraSettings)
 	ON_COMMAND(ID_OPTIONS_SHOWFPS, &CMainFrame::OnShowFps)
+	ON_COMMAND(ID_OPTIONS_AUTOSTART, &CMainFrame::OnAutoStart)
 	ON_COMMAND(ID_MENU_PRINT_ANALYSIS_OPTS, &CMainFrame::OnPrintAnalysisOptions)
 	ON_MESSAGE(WM_ON_PRINT_ANALYSIS_NOT_FOUND, &CMainFrame::OnPrintAnalysisFilterNotFound)
 	ON_MESSAGE(WM_ON_BARCODE_READER_NOT_FOUND, &CMainFrame::OnBarcodeReaderFilterNotFound)
@@ -85,6 +86,7 @@ CMainFrame::CMainFrame() noexcept
 	, m_bBarcodeShowLocation(TRUE)
 	, m_bBarcodeReaderAvailable(TRUE)
 	, m_bRegBarcodeScanEnabled(FALSE)
+	, m_bAutoStart(FALSE)
 {
 	m_bAutoMenuEnable = FALSE;
 	m_bPreviewEnabled = FALSE;
@@ -102,6 +104,15 @@ CMainFrame::CMainFrame() noexcept
 
 CMainFrame::~CMainFrame()
 {
+	RegAppSettings appSettings;
+
+	appSettings.bAutoStart = m_bAutoStart;
+	appSettings.strCameraName = m_gstPlayer.GetDeviceName(m_iSelectedCam);
+	appSettings.strSource = m_strSource;
+	appSettings.strSink = m_strSink;
+
+	m_registryManager.SaveAppSettings(appSettings);
+
 	if (m_pDlgCamSettingsPropSheet)
 		delete m_pDlgCamSettingsPropSheet;
 
@@ -216,23 +227,73 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 
 	StringList deviceNames = m_gstPlayer.GetDeviceNames();
 	int iDeviceIndex = 0;
+	BOOL bAutoStart = FALSE;
+
+	RegAppSettings appSettings;
+	BOOL bAppSettingsRet = m_registryManager.GetAppSettings(appSettings);
+
+	m_bAutoStart = appSettings.bAutoStart;
+	GetMenu()->GetSubMenu(ID_MENU_OPTIONS)->CheckMenuItem(ID_OPTIONS_AUTOSTART, m_bAutoStart ? MF_CHECKED : MF_UNCHECKED);
 
 	for (std::string deviceName : deviceNames)
 	{
 		pMenuSub->AppendMenu(MF_STRING, MENU_VDEVICE0 + iDeviceIndex, deviceName.c_str());
+
+		if (bAppSettingsRet && deviceName == appSettings.strCameraName)
+		{
+			m_iSelectedCam = iDeviceIndex;
+
+			/*
+			* We found the camera set in the registry so if auto start
+			* was set in the registry we set it here to start auto preview
+			*/
+			bAutoStart = m_bAutoStart;
+		}
 		iDeviceIndex++;
 	}
 	
 	if (deviceNames.size())
-		pMenuSub->CheckMenuItem(MENU_VDEVICE0, MF_CHECKED);
+		pMenuSub->CheckMenuItem(MENU_VDEVICE0 + m_iSelectedCam, MF_CHECKED);
 
-	// By default we use media foundation
-	m_strSource = g_gstSources[ID_SOURCE_MEDIAFOUNDATION];
-	GetMenu()->GetSubMenu(ID_MENU_SOURCES)->CheckMenuItem(ID_SOURCE_MEDIAFOUNDATION, MF_CHECKED);
+	// first try to use the source from app settings
+	if (bAppSettingsRet && appSettings.strSource.size())
+	{
+		for (auto& [iSrcIdx, strSource] : g_gstSources)
+		{
+			if (strSource == appSettings.strSource)
+			{
+				m_strSource = strSource;
+				GetMenu()->GetSubMenu(ID_MENU_SOURCES)->CheckMenuItem(iSrcIdx, MF_CHECKED);
+				break;
+			}
+		}
+	}
+	else
+	{
+		// By default we use media foundation
+		m_strSource = g_gstSources[ID_SOURCE_MEDIAFOUNDATION];
+		GetMenu()->GetSubMenu(ID_MENU_SOURCES)->CheckMenuItem(ID_SOURCE_MEDIAFOUNDATION, MF_CHECKED);
+	}
 
-	m_strSink = g_gstSinks[ID_SINK_AUTO];
-	
-	GetMenu()->GetSubMenu(ID_MENU_SINKS)->CheckMenuItem(ID_SINK_AUTO, MF_CHECKED);
+	// first try to use the sink from app settings
+	if (bAppSettingsRet && appSettings.strSink.size())
+	{
+		for (auto& [iSinkIdx, strSink] : g_gstSinks)
+		{
+			if (strSink == appSettings.strSink)
+			{
+				m_strSink = strSink;
+				GetMenu()->GetSubMenu(ID_MENU_SINKS)->CheckMenuItem(iSinkIdx, MF_CHECKED);
+				break;
+			}
+		}
+	}
+	else
+	{
+		m_strSink = g_gstSinks[ID_SINK_AUTO];
+		GetMenu()->GetSubMenu(ID_MENU_SINKS)->CheckMenuItem(ID_SINK_AUTO, MF_CHECKED);
+	}
+
 	GetMenu()->GetSubMenu(ID_MENU_OPTIONS)->EnableMenuItem(ID_OPTIONS_SNAPSHOT, MF_DISABLED);
 	GetMenu()->GetSubMenu(ID_MENU_BARCODE)->CheckMenuItem(ID_BARCODE_SCAN, MF_UNCHECKED);
 	GetMenu()->GetSubMenu(ID_MENU_BARCODE)->CheckMenuItem(ID_BARCODE_SHOW_LOCATION, MF_CHECKED);
@@ -240,8 +301,8 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	GetMenu()->GetSubMenu(ID_MENU_BARCODE)->EnableMenuItem(ID_BARCODE_TYPES, MF_DISABLED);
 	ToggleToolbarButton(ID_BARCODE_SCAN);
 
-	m_deviceCapsList = m_gstPlayer.GetDeviceCaps(m_strSource, 0);
-	m_deviceCapsDlg.UpdateDeviceCaps(m_strSource, 0, m_deviceCapsList);
+	m_deviceCapsList = m_gstPlayer.GetDeviceCaps(m_strSource, m_iSelectedCam);
+	m_deviceCapsDlg.UpdateDeviceCaps(m_strSource, m_iSelectedCam, m_deviceCapsList);
 
 	m_pDlgCamSettingsPropSheet = new CPropertySheet("Camera Settings", this);
 
@@ -250,6 +311,9 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	RedrawWindow(nullptr, nullptr, RDW_ALLCHILDREN | RDW_INVALIDATE | RDW_UPDATENOW | RDW_FRAME | RDW_ERASE);
 
 	m_registryManager.StartMonitoring(this);
+
+	if (bAutoStart)
+		OnPreview();
 
 	return 0;
 }
@@ -613,6 +677,14 @@ void CMainFrame::OnShowFps()
 	CMenu* pOptionsMenu = GetMenu()->GetSubMenu(ID_MENU_OPTIONS);
 	pOptionsMenu->CheckMenuItem(ID_OPTIONS_SHOWFPS, m_bShowFps ? MF_CHECKED : MF_UNCHECKED);
 	ToggleToolbarButton(ID_OPTIONS_SHOWFPS);
+}
+
+void CMainFrame::OnAutoStart()
+{
+	m_bAutoStart = !m_bAutoStart;
+
+	CMenu* pOptionsMenu = GetMenu()->GetSubMenu(ID_MENU_OPTIONS);
+	pOptionsMenu->CheckMenuItem(ID_OPTIONS_AUTOSTART, m_bAutoStart ? MF_CHECKED : MF_UNCHECKED);
 }
 
 void CMainFrame::OnPrintAnalysisOptions()

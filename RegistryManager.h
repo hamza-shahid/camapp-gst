@@ -31,6 +31,15 @@ struct RegFlagManager
 
 typedef std::shared_ptr<RegFlagManager>	RegFlagManagerPtr;
 
+struct RegAppSettings
+{
+	BOOL			bAutoStart;
+	std::string		strCameraName;
+	std::string		strSource;
+	std::string		strSink;
+};
+
+typedef std::shared_ptr<RegAppSettings>	RegAppSettingsPtr;
 
 // CRegistrySettings dialog
 
@@ -66,6 +75,9 @@ public:
 
 	void SetSnapshotFlag();
 	LRESULT GetSnapshotDir(std::string& strSnapshotDir);
+
+	BOOL GetAppSettings(RegAppSettings& appSettings);
+	BOOL SaveAppSettings(RegAppSettings appSettings);
 
 	void WriteBarcodesToReg(BarcodeList* pBarcodeList);
 

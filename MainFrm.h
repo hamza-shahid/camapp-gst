@@ -86,6 +86,7 @@ protected:  // control bar embedded members
 	BOOL		m_bBarcodeShowLocation;
 	BOOL		m_bBarcodeReaderAvailable;
 	BOOL		m_bShowFps;
+	BOOL		m_bAutoStart;
 	std::string	m_strSource;
 	std::string m_strSink;
 	CGstPlayer	m_gstPlayer;
@@ -114,6 +115,7 @@ protected:
 	afx_msg LRESULT OnPrintAnalysisChangeOpts(WPARAM wParam, LPARAM lParam);
 	afx_msg void OnCameraOptions();
 	afx_msg void OnShowFps();
+	afx_msg void OnAutoStart();
 	afx_msg void OnPrintAnalysisOptions();
 	afx_msg LRESULT OnPrintAnalysisFilterNotFound(WPARAM wParam, LPARAM lParam);
 	afx_msg LRESULT OnBarcodeReaderFilterNotFound(WPARAM wParam, LPARAM lParam);

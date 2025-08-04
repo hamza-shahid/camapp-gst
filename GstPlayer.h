@@ -97,8 +97,8 @@ private:
 	BOOL CameraExists(std::string strCameraName);
 	void GstreamerPipelineRun();
 	void MonitorOpenGlWindow();
-	void AddResolutionToFormat(DeviceCapsPtr pDeviceCaps, int iWidth, int iHeight, int iFramerateNum, int iFramerateDen);
-	void AddFramerateToResolution(ResolutionPtr pResolution, int iFramerateNum, int iFramerateDen);
+	void AddResolutionToFormat(DeviceCapsPtr pDeviceCaps, int iWidth, int iHeight, const GValue* pFramerateValue);
+	void AddFramerateToResolution(ResolutionPtr pResolution, const GValue* pFramerateValue);
 	DeviceCapsPtr ParseCapsStr(std::string strCaps);
 	void SetPrintAnalysisElementOpts();
 	void SetSnapshot(BYTE* pBuffer, int nSize, int nWidth, int nHeight, std::string format);
