@@ -104,14 +104,7 @@ CMainFrame::CMainFrame() noexcept
 
 CMainFrame::~CMainFrame()
 {
-	RegAppSettings appSettings;
-
-	appSettings.bAutoStart = m_bAutoStart;
-	appSettings.strCameraName = m_gstPlayer.GetDeviceName(m_iSelectedCam);
-	appSettings.strSource = m_strSource;
-	appSettings.strSink = m_strSink;
-
-	m_registryManager.SaveAppSettings(appSettings);
+	SaveAppSettings();
 
 	if (m_pDlgCamSettingsPropSheet)
 		delete m_pDlgCamSettingsPropSheet;
@@ -120,6 +113,27 @@ CMainFrame::~CMainFrame()
 		m_gstPlayer.StopPreview();
 
 	CoUninitialize();
+}
+
+void CMainFrame::SaveAppSettings()
+{
+	DeviceCapsPtr pDeviceCaps = (*m_deviceCapsList)[m_deviceCapsDlg.GetFormatIdx()];
+	ResolutionPtr pResolution = (*(pDeviceCaps->m_resolutions))[m_deviceCapsDlg.GetResolutionIdx()];
+	FractionPtr pFramerate = (*(pResolution->m_framerates))[m_deviceCapsDlg.GetFramerateIdx()];
+	RegAppSettings appSettings;
+
+	appSettings.bAutoStart = m_bAutoStart;
+	appSettings.strCameraName = m_gstPlayer.GetDeviceName(m_iSelectedCam);
+	appSettings.strSource = m_strSource;
+	appSettings.strSink = m_strSink;
+	appSettings.strMediaType = pDeviceCaps->m_strMediaType;
+	appSettings.strFormat = pDeviceCaps->m_strFormat;
+	appSettings.iWidth = pResolution->m_iWidth;
+	appSettings.iHeight = pResolution->m_iHeight;
+	appSettings.iFramerateNum = pFramerate->first;
+	appSettings.iFramerateDen = pFramerate->second;
+
+	m_registryManager.SaveAppSettings(appSettings);
 }
 
 void CMainFrame::AddToolbarButton(int nCommandId, int nResourceIdDefault, int nResourceIdPressed, CString strBtnText)
@@ -303,6 +317,7 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 
 	m_deviceCapsList = m_gstPlayer.GetDeviceCaps(m_strSource, m_iSelectedCam);
 	m_deviceCapsDlg.UpdateDeviceCaps(m_strSource, m_iSelectedCam, m_deviceCapsList);
+	m_deviceCapsDlg.SelectDeviceCaps(appSettings.strFormat, appSettings.iWidth, appSettings.iHeight, appSettings.iFramerateNum, appSettings.iFramerateDen);
 
 	m_pDlgCamSettingsPropSheet = new CPropertySheet("Camera Settings", this);
 

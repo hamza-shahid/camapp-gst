@@ -15,6 +15,7 @@ public:
 	virtual ~CDeviceCapsDlg();
 
 	void UpdateDeviceCaps(std::string strSource, int iDeviceIdx, DeviceCapsListPtr deviceCaps);
+	void SelectDeviceCaps(std::string strFormat, int iWidth, int iHeight, int iFramerateNum, int iFramerateDen);
 	
 	int GetFormatIdx() { return m_iFormatIdx; }
 	int GetResolutionIdx() { return m_iResolutionIdx; }

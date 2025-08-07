@@ -44,7 +44,9 @@ protected:
 	void AddToolbarButton(int nCommandId, int nResourceIdDefault, int nResourceIdPressed = -1, CString strBtnText = "");
 	void ToggleToolbarButton(int nBtnCommandId);
 
-	void EnableBarcodeScan();
+	void EnableBarcodeScan(BOOL bEnable);
+
+	void SaveAppSettings();
 
 // Attributes
 public:

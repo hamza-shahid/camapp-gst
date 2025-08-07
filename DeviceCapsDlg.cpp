@@ -13,6 +13,8 @@ IMPLEMENT_DYNAMIC(CDeviceCapsDlg, CDialogEx)
 
 CDeviceCapsDlg::CDeviceCapsDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_DEVICE_CAPS, pParent)
+	, m_iDeviceIndex(-1)
+	, m_strSource("")
 {
 	m_iFormatIdx = 0;
 	m_iResolutionIdx = 0;
@@ -85,6 +87,47 @@ void CDeviceCapsDlg::UpdateDeviceCaps(std::string strSource, int iDeviceIdx, Dev
 		m_iFormatIdx		= 0;
 		m_iResolutionIdx	= 0;
 		m_iFramerateIdx		= 0;
+	}
+}
+
+void CDeviceCapsDlg::SelectDeviceCaps(std::string strFormat, int iWidth, int iHeight, int iFramerateNum, int iFramerateDen)
+{
+	if (strFormat.size())
+	{
+		for (int iFormatIdx = 0; iFormatIdx < m_deviceCaps->size(); iFormatIdx++)
+		{
+			DeviceCapsPtr pDeviceCaps = (*m_deviceCaps)[iFormatIdx];
+
+			if (pDeviceCaps->m_strFormat == strFormat)
+			{
+				m_iFormatIdx = iFormatIdx;
+
+				for (int iResolutionIdx = 0; iResolutionIdx < pDeviceCaps->m_resolutions->size(); iResolutionIdx++)
+				{
+					ResolutionPtr pResolution = (*pDeviceCaps->m_resolutions)[iResolutionIdx];
+
+					if (pResolution->m_iWidth == iWidth && pResolution->m_iHeight == iHeight)
+					{
+						m_iResolutionIdx = iResolutionIdx;
+
+						for (int iFramerateIdx = 0; iFramerateIdx < pResolution->m_framerates->size(); iFramerateIdx++)
+						{
+							FractionPtr pFramerate = (*pResolution->m_framerates)[iFramerateIdx];
+
+							if (pFramerate->first == iFramerateNum && pFramerate->second == iFramerateDen)
+							{
+								m_iFramerateIdx = iFramerateIdx;
+								break;
+							}
+						}
+
+						break;
+					}
+				}
+
+				break;
+			}
+		}
 	}
 }
 

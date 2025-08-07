@@ -37,6 +37,12 @@ struct RegAppSettings
 	std::string		strCameraName;
 	std::string		strSource;
 	std::string		strSink;
+	std::string		strMediaType;
+	std::string		strFormat;
+	int				iWidth;
+	int				iHeight;
+	int				iFramerateNum;
+	int				iFramerateDen;
 };
 
 typedef std::shared_ptr<RegAppSettings>	RegAppSettingsPtr;

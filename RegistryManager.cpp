@@ -20,6 +20,12 @@
 #define REG_SOURCE_VALUE		"Source"
 #define REG_SINK_VALUE			"Sink"
 #define REG_AUTO_START			"AutoStart"
+#define REG_MEDIA_TYPE			"MediaType"
+#define REG_FORMAT				"Format"
+#define REG_WIDTH				"Width"
+#define REG_HEIGHT				"Height"
+#define REG_FRAMERATE_NUM		"FramerateNum"
+#define REG_FRAMERATE_DEN		"FramerateDen"
 
 
 // CRegistrySettings dialog
@@ -565,6 +571,32 @@ BOOL CRegistryManager::GetAppSettings(RegAppSettings& appSettings)
 	if (lStatus == ERROR_SUCCESS)
 		appSettings.strSink = pszRegStr;
 
+	unRegStrSize = sizeof(pszRegStr);
+	lStatus = regKey.QueryStringValue(REG_MEDIA_TYPE, pszRegStr, &unRegStrSize);
+	if (lStatus == ERROR_SUCCESS)
+		appSettings.strMediaType = pszRegStr;
+
+	unRegStrSize = sizeof(pszRegStr);
+	lStatus = regKey.QueryStringValue(REG_FORMAT, pszRegStr, &unRegStrSize);
+	if (lStatus == ERROR_SUCCESS)
+		appSettings.strFormat = pszRegStr;
+
+	lStatus = regKey.QueryDWORDValue(REG_WIDTH, (DWORD&)appSettings.iWidth);
+	if (lStatus != ERROR_SUCCESS)
+		appSettings.iWidth = -1;
+
+	lStatus = regKey.QueryDWORDValue(REG_HEIGHT, (DWORD&)appSettings.iHeight);
+	if (lStatus != ERROR_SUCCESS)
+		appSettings.iHeight = -1;
+
+	lStatus = regKey.QueryDWORDValue(REG_FRAMERATE_NUM, (DWORD&)appSettings.iFramerateNum);
+	if (lStatus != ERROR_SUCCESS)
+		appSettings.iFramerateNum = -1;
+
+	lStatus = regKey.QueryDWORDValue(REG_FRAMERATE_DEN, (DWORD&)appSettings.iFramerateDen);
+	if (lStatus != ERROR_SUCCESS)
+		appSettings.iFramerateDen = -1;
+
 	regKey.Close();
 
 	return TRUE;
@@ -582,6 +614,12 @@ BOOL CRegistryManager::SaveAppSettings(RegAppSettings appSettings)
 	lStatus = regKey.SetStringValue(REG_CAMERA_NAME_VALUE, appSettings.strCameraName.c_str());
 	lStatus = regKey.SetStringValue(REG_SOURCE_VALUE, appSettings.strSource.c_str());
 	lStatus = regKey.SetStringValue(REG_SINK_VALUE, appSettings.strSink.c_str());
+	lStatus = regKey.SetStringValue(REG_MEDIA_TYPE, appSettings.strMediaType.c_str());
+	lStatus = regKey.SetStringValue(REG_FORMAT, appSettings.strFormat.c_str());
+	lStatus = regKey.SetDWORDValue(REG_WIDTH, appSettings.iWidth);
+	lStatus = regKey.SetDWORDValue(REG_HEIGHT, appSettings.iHeight);
+	lStatus = regKey.SetDWORDValue(REG_FRAMERATE_NUM, appSettings.iFramerateNum);
+	lStatus = regKey.SetDWORDValue(REG_FRAMERATE_DEN, appSettings.iFramerateDen);
 
 	regKey.Close();
 
