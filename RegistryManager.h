@@ -43,6 +43,10 @@ struct RegAppSettings
 	int				iHeight;
 	int				iFramerateNum;
 	int				iFramerateDen;
+	unsigned int	uBarcodeFormats;
+	unsigned int	uBarcodeColStartX;
+	unsigned int	uBarcodeColWidth;
+	BOOL			bBarcodeEnabled;
 };
 
 typedef std::shared_ptr<RegAppSettings>	RegAppSettingsPtr;
@@ -73,7 +77,6 @@ protected:
 	LSTATUS ReadString(std::string strKeyName, std::string& strKeyValue);
 
 	void Monitor(RegFlagManagerPtr pRegFlagManager);
-	//void Monitor();
 
 public:
 	void WritePrintPartitionsResultsToReg(const char* pJsonStr);
@@ -97,24 +100,10 @@ protected:
 	CComboBox	m_comboParentKey;
 	CString		m_strParentKey;
 	CString		m_strSubKey;
-	//CString		m_strAoiRegFlagName;
-	//CString		m_strSnapshotRegFlagName;
 	CString		m_strSnapshotDirRegKeyName;
 
-	//CString		m_strStartStopRegFlagName;
-
-	//CString		m_strBarcodeRegFlagName;
-	BOOL		m_bBarcodeMsgSent;
-
-	CFrameWndEx*	m_pParent;
-
-	//std::thread			timerThread;
-	std::atomic<bool>	bMonitor;
-
-	std::thread	m_aoiRegFlagMonitorThread;
-	std::thread	m_snapshotRegFlagMonitorThread;
-	std::thread	m_barcodeRegFlagMonitorThread;
-	std::thread	m_startStopRegFlagMonitorThread;
+	CFrameWndEx*		m_pParent;
+	std::atomic<bool>	m_bMonitor;
 
 	DECLARE_MESSAGE_MAP()
 };

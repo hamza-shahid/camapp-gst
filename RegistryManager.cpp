@@ -26,6 +26,10 @@
 #define REG_HEIGHT				"Height"
 #define REG_FRAMERATE_NUM		"FramerateNum"
 #define REG_FRAMERATE_DEN		"FramerateDen"
+#define REG_BARCODE_FORMATS		"BarcodeFormats"
+#define REG_BARCODE_COL_START_X	"BarcodeColumnStartX"
+#define REG_BARCODE_COL_WIDTH	"BarcodeColumnWidth"
+#define REG_BARCODE_ENABLED		"BarcodeEnabled"
 
 
 // CRegistrySettings dialog
@@ -34,7 +38,7 @@ IMPLEMENT_DYNAMIC(CRegistryManager, CDialogEx)
 
 CRegistryManager::CRegistryManager(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_DIALOG_REG_SETTINGS, pParent)
-	, m_bBarcodeMsgSent(FALSE)
+	, m_pParent(NULL)
 {
 	m_mapParentKeys["HKEY_CLASSES_ROOT"]	= HKEY_CLASSES_ROOT;
 	m_mapParentKeys["HKEY_CURRENT_USER"]	= HKEY_CURRENT_USER;
@@ -44,11 +48,7 @@ CRegistryManager::CRegistryManager(CWnd* pParent /*=nullptr*/)
 
 	m_strParentKey				= "HKEY_LOCAL_MACHINE";
 	m_strSubKey					= REG_SUB_KEY;
-	//m_strAoiRegFlagName			= REG_AOI_KEY_NAME;
-	//m_strSnapshotRegFlagName	= REG_SNAPSHOT_KEY_NAME;
 	m_strSnapshotDirRegKeyName	= REG_SNAPSHOT_DIR_NAME;
-	//m_strBarcodeRegFlagName		= REG_BARCODE_KEY_NAME;
-	//m_strStartStopRegFlagName	= REG_START_STOP_PREVIEW;
 
 	RegFlagManagerPtr pAoiRegFlagManager		= std::make_shared<RegFlagManager>();
 	pAoiRegFlagManager->strRegFlagName			= REG_AOI_KEY_NAME;
@@ -67,16 +67,16 @@ CRegistryManager::CRegistryManager(CWnd* pParent /*=nullptr*/)
 	pSnapshotRegFlagManager->dwPrevValue		= 1;
 	pSnapshotRegFlagManager->eNotPolicy			= ON_INTERVAL;
 	m_regFlags[IDC_EDIT_REG_SNAPSHOT_FLAG]		= pSnapshotRegFlagManager;
-
+	
 	RegFlagManagerPtr pBarcodeRegFlagManager	= std::make_shared<RegFlagManager>();
-	pBarcodeRegFlagManager->strRegFlagName		= REG_BARCODE_KEY_NAME;
+	pBarcodeRegFlagManager->strRegFlagName		= REG_BARCODE_ENABLED;
 	pBarcodeRegFlagManager->nEditBoxId			= IDC_EDIT_REG_BARCODE_FLAG;
 	pBarcodeRegFlagManager->uiOnChangeMsg		= WM_BARCODE_SCAN_REG;
-	pBarcodeRegFlagManager->dwDefaultValue		= 1;
-	pBarcodeRegFlagManager->dwPrevValue			= 1;
-	pBarcodeRegFlagManager->eNotPolicy			= ON_INTERVAL;
+	pBarcodeRegFlagManager->dwDefaultValue		= 0;
+	pBarcodeRegFlagManager->dwPrevValue			= 0;
+	pBarcodeRegFlagManager->eNotPolicy			= ON_UPDATE;
 	m_regFlags[IDC_EDIT_REG_BARCODE_FLAG]		= pBarcodeRegFlagManager;
-
+	
 	RegFlagManagerPtr pStartStopRegFlagManager	= std::make_shared<RegFlagManager>();
 	pStartStopRegFlagManager->strRegFlagName	= REG_START_STOP_PREVIEW;
 	pStartStopRegFlagManager->nEditBoxId		= IDC_EDIT_REG_START_STOP_FLAG;
@@ -372,8 +372,7 @@ void CRegistryManager::StartMonitoring(CFrameWndEx* pParent)
 {
 	m_pParent = pParent;
 
-	bMonitor = true;
-	//timerThread = std::thread(&CRegistryManager::Monitor, this);
+	m_bMonitor = true;
 
 	for (const auto& regFlagEntry : m_regFlags)
 		regFlagEntry.second->regFlagMonitorThread = std::thread(&CRegistryManager::Monitor, this, regFlagEntry.second);
@@ -381,7 +380,7 @@ void CRegistryManager::StartMonitoring(CFrameWndEx* pParent)
 
 void CRegistryManager::StopMonitoring()
 {
-	bMonitor = false;
+	m_bMonitor = false;
 	
 	for (const auto& regFlagEntry : m_regFlags)
 	{
@@ -393,114 +392,36 @@ void CRegistryManager::StopMonitoring()
 void CRegistryManager::Monitor(RegFlagManagerPtr pRegFlagManager)
 {
 	CRegKey regKey;
+	BOOL bExiting = FALSE;
 
 	LSTATUS lStatus = OpenRegFlag(pRegFlagManager->strRegFlagName.GetBuffer(), pRegFlagManager->dwDefaultValue, regKey);
 	if (lStatus == ERROR_SUCCESS)
 	{
-		//HANDLE hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-		//if (hEvent)
-		//{
-			while (bMonitor)
+		while (m_bMonitor)
+		{
+			DWORD dwValue;
+
+			lStatus = regKey.QueryDWORDValue(pRegFlagManager->strRegFlagName.GetBuffer(), dwValue);
+
+			if (lStatus == ERROR_SUCCESS)
 			{
-#if 0
-				// Request notification for any changes in the key
-				if (regKey.NotifyChangeKeyValue(FALSE, REG_NOTIFY_CHANGE_LAST_SET, hEvent, TRUE) != ERROR_SUCCESS)
-					break;
-
-				// Wait for a change to occur
-				DWORD waitResult = WaitForSingleObject(hEvent, 1000);
-				if (waitResult == WAIT_OBJECT_0)
+				if ((pRegFlagManager->eNotPolicy == ON_UPDATE && dwValue != pRegFlagManager->dwPrevValue) || pRegFlagManager->eNotPolicy == ON_INTERVAL)
 				{
-					DWORD dwValue;
-
-					lStatus = regKey.QueryDWORDValue(pRegFlagManager->strRegFlagName.GetBuffer(), dwValue);
-					
-					if (lStatus == ERROR_SUCCESS)
-						m_pParent->PostMessage(pRegFlagManager->uiOnChangeMsg, 0, dwValue);
+					m_pParent->PostMessage(pRegFlagManager->uiOnChangeMsg, 0, dwValue);
+					pRegFlagManager->dwPrevValue = dwValue;
 				}
-#endif
-				DWORD dwValue;
-
-				lStatus = regKey.QueryDWORDValue(pRegFlagManager->strRegFlagName.GetBuffer(), dwValue);
-
-				if (lStatus == ERROR_SUCCESS)
-				{
-					if ((pRegFlagManager->eNotPolicy == ON_UPDATE && dwValue != pRegFlagManager->dwPrevValue) || pRegFlagManager->eNotPolicy == ON_INTERVAL)
-					{
-						m_pParent->PostMessage(pRegFlagManager->uiOnChangeMsg, 0, dwValue);
-						pRegFlagManager->dwPrevValue = dwValue;
-					}
-				}
-
-				std::this_thread::sleep_for(std::chrono::seconds(1));
 			}
 
-			
-
-			//CloseHandle(hEvent);
-		//}
-
+			std::this_thread::sleep_for(std::chrono::seconds(1));
+		}
 		regKey.Close();
 	}
-}
-#if 0
-void CRegistryManager::Monitor()
-{
-	BOOL bFLAG;
-	LONG lResult;
-
-	while (bMonitor)
+	else
 	{
-		std::this_thread::sleep_for(std::chrono::seconds(1));
-		
-		// check for preview start / stop flag
-		bFLAG = FALSE;		// false means stop preview
-		lResult = CheckRegFlag(m_strStartStopRegFlagName.GetBuffer(), bFLAG);
-
-		if (lResult == ERROR_SUCCESS && bFLAG != 2)
-		{
-			// send message to parent
-			m_pParent->PostMessage(WM_START_STOP_PREVIEW_REG, 0, (LRESULT) bFLAG);
-		}
-		
-		// check for aoi partitions flag
-		bFLAG = TRUE;		// true means it's not ready
-		lResult = CheckRegFlag(m_strAoiRegFlagName.GetBuffer(), bFLAG);
-
-		if (lResult == ERROR_SUCCESS && !bFLAG)
-		{
-			// send message to parent
-			m_pParent->PostMessage(WM_PRINT_ANALYSIS_AOI_PARTITIONS_READY);
-		}
-
-		// check for snapshot flag
-		bFLAG = TRUE;		// true means it's not ready
-		lResult = CheckRegFlag(m_strSnapshotRegFlagName.GetBuffer(), bFLAG);
-
-		if (lResult == ERROR_SUCCESS && !bFLAG)
-		{
-			std::string strSnapshotDir;
-
-			lResult = ReadString(m_strSnapshotDirRegKeyName.GetBuffer(), strSnapshotDir);
-
-			if (lResult == ERROR_SUCCESS)
-			{
-				lResult = m_pParent->PostMessage(WM_TAKE_SNAPSHOT, 0, (LPARAM)strSnapshotDir.c_str());
-			}
-		}
-
-		// check for barcode flag
-		bFLAG = TRUE;		// true means it's not ready
-		lResult = CheckRegFlag(m_strBarcodeRegFlagName.GetBuffer(), bFLAG);
-
-		if (lResult == ERROR_SUCCESS && !bFLAG /* && !m_bBarcodeMsgSent*/)
-		{
-			m_pParent->PostMessage(WM_BARCODE_SCAN_REG, 0, 0);
-			m_bBarcodeMsgSent = TRUE;
-		}
+		bExiting = TRUE;
 	}
 }
-#endif
+
 void CRegistryManager::SetSnapshotFlag()
 {
 	SetRegFlag(m_regFlags[IDC_EDIT_REG_SNAPSHOT_FLAG]->strRegFlagName.GetBuffer());
@@ -597,6 +518,22 @@ BOOL CRegistryManager::GetAppSettings(RegAppSettings& appSettings)
 	if (lStatus != ERROR_SUCCESS)
 		appSettings.iFramerateDen = -1;
 
+	lStatus = regKey.QueryDWORDValue(REG_BARCODE_FORMATS, (DWORD&)appSettings.uBarcodeFormats);
+	if (lStatus != ERROR_SUCCESS)
+		appSettings.uBarcodeFormats = 0xFFFFFFFFu;
+
+	lStatus = regKey.QueryDWORDValue(REG_BARCODE_COL_START_X, (DWORD&)appSettings.uBarcodeColStartX);
+	if (lStatus != ERROR_SUCCESS)
+		appSettings.uBarcodeColStartX = 0;
+
+	lStatus = regKey.QueryDWORDValue(REG_BARCODE_COL_WIDTH, (DWORD&)appSettings.uBarcodeColWidth);
+	if (lStatus != ERROR_SUCCESS)
+		appSettings.uBarcodeColWidth = 0;
+
+	lStatus = regKey.QueryDWORDValue(REG_BARCODE_ENABLED, (DWORD&)appSettings.bBarcodeEnabled);
+	if (lStatus != ERROR_SUCCESS)
+		appSettings.bBarcodeEnabled = FALSE;
+	
 	regKey.Close();
 
 	return TRUE;
@@ -620,6 +557,10 @@ BOOL CRegistryManager::SaveAppSettings(RegAppSettings appSettings)
 	lStatus = regKey.SetDWORDValue(REG_HEIGHT, appSettings.iHeight);
 	lStatus = regKey.SetDWORDValue(REG_FRAMERATE_NUM, appSettings.iFramerateNum);
 	lStatus = regKey.SetDWORDValue(REG_FRAMERATE_DEN, appSettings.iFramerateDen);
+	lStatus = regKey.SetDWORDValue(REG_BARCODE_FORMATS, appSettings.uBarcodeFormats);
+	lStatus = regKey.SetDWORDValue(REG_BARCODE_COL_START_X, appSettings.uBarcodeColStartX);
+	lStatus = regKey.SetDWORDValue(REG_BARCODE_COL_WIDTH, appSettings.uBarcodeColWidth);
+	lStatus = regKey.SetDWORDValue(REG_BARCODE_ENABLED, appSettings.bBarcodeEnabled);
 
 	regKey.Close();
 

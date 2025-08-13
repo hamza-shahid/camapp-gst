@@ -132,6 +132,10 @@ void CMainFrame::SaveAppSettings()
 	appSettings.iHeight = pResolution->m_iHeight;
 	appSettings.iFramerateNum = pFramerate->first;
 	appSettings.iFramerateDen = pFramerate->second;
+	appSettings.uBarcodeFormats = m_dlgBarcodeTypes.GetBarcodeFormats();
+	appSettings.uBarcodeColStartX = m_dlgBarcodeTypes.GetBarcodeColumnStartX();
+	appSettings.uBarcodeColWidth = m_dlgBarcodeTypes.GetBarcodeColumnWidth();
+	appSettings.bBarcodeEnabled = m_bBarcodeScanEnabled;
 
 	m_registryManager.SaveAppSettings(appSettings);
 }
@@ -249,6 +253,12 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	m_bAutoStart = appSettings.bAutoStart;
 	GetMenu()->GetSubMenu(ID_MENU_OPTIONS)->CheckMenuItem(ID_OPTIONS_AUTOSTART, m_bAutoStart ? MF_CHECKED : MF_UNCHECKED);
 
+	m_dlgBarcodeTypes.SetBarcodeFormats(appSettings.uBarcodeFormats);
+	m_dlgBarcodeTypes.SetBarcodeColStartX(appSettings.uBarcodeColStartX);
+	m_dlgBarcodeTypes.SetBarcodeColWidth(appSettings.uBarcodeColWidth);
+
+	m_bBarcodeScanEnabled = appSettings.bBarcodeEnabled;
+
 	for (std::string deviceName : deviceNames)
 	{
 		pMenuSub->AppendMenu(MF_STRING, MENU_VDEVICE0 + iDeviceIndex, deviceName.c_str());
@@ -308,12 +318,15 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		GetMenu()->GetSubMenu(ID_MENU_SINKS)->CheckMenuItem(ID_SINK_AUTO, MF_CHECKED);
 	}
 
-	GetMenu()->GetSubMenu(ID_MENU_OPTIONS)->EnableMenuItem(ID_OPTIONS_SNAPSHOT, MF_DISABLED);
-	GetMenu()->GetSubMenu(ID_MENU_BARCODE)->CheckMenuItem(ID_BARCODE_SCAN, MF_UNCHECKED);
-	GetMenu()->GetSubMenu(ID_MENU_BARCODE)->CheckMenuItem(ID_BARCODE_SHOW_LOCATION, MF_CHECKED);
-	GetMenu()->GetSubMenu(ID_MENU_BARCODE)->EnableMenuItem(ID_BARCODE_SHOW_LOCATION, MF_DISABLED);
-	GetMenu()->GetSubMenu(ID_MENU_BARCODE)->EnableMenuItem(ID_BARCODE_TYPES, MF_DISABLED);
-	ToggleToolbarButton(ID_BARCODE_SCAN);
+	if (!m_bBarcodeScanEnabled)
+	{
+		GetMenu()->GetSubMenu(ID_MENU_OPTIONS)->EnableMenuItem(ID_OPTIONS_SNAPSHOT, MF_DISABLED);
+		GetMenu()->GetSubMenu(ID_MENU_BARCODE)->CheckMenuItem(ID_BARCODE_SCAN, MF_UNCHECKED);
+		GetMenu()->GetSubMenu(ID_MENU_BARCODE)->CheckMenuItem(ID_BARCODE_SHOW_LOCATION, MF_CHECKED);
+		GetMenu()->GetSubMenu(ID_MENU_BARCODE)->EnableMenuItem(ID_BARCODE_SHOW_LOCATION, MF_DISABLED);
+		GetMenu()->GetSubMenu(ID_MENU_BARCODE)->EnableMenuItem(ID_BARCODE_TYPES, MF_DISABLED);
+		ToggleToolbarButton(ID_BARCODE_SCAN);
+	}
 
 	m_deviceCapsList = m_gstPlayer.GetDeviceCaps(m_strSource, m_iSelectedCam);
 	m_deviceCapsDlg.UpdateDeviceCaps(m_strSource, m_iSelectedCam, m_deviceCapsList);
@@ -788,11 +801,21 @@ void CMainFrame::OnBarcodeScan()
 
 LRESULT CMainFrame::OnBarcodeScanReg(WPARAM wParam, LPARAM lParam)
 {
+	if (m_bBarcodeScanEnabled != (BOOL)lParam)
+	{
+		OnBarcodeScan();
+	}
+	/*
 	if (!m_bBarcodeScanEnabled && (DWORD)lParam == 0)
 	{
 		OnBarcodeScan();
 		m_bRegBarcodeScanEnabled = TRUE;
 	}
+	else if (m_bBarcodeScanEnabled && m_bRegBarcodeScanEnabled && (DWORD)lParam == 1)
+	{
+		OnBarcodeScan();
+		m_bRegBarcodeScanEnabled = FALSE;
+	}*/
 
 	return 0;
 }

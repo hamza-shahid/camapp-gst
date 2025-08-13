@@ -5,7 +5,6 @@
 #include "camapp-gst.h"
 #include "BarcodeTypesDlg.h"
 #include "afxdialogex.h"
-#include "BarcodeFormat.h"
 
 
 #define IsChecked(id) ((BOOL)(DWORD)GetDlgItem(id)->SendMessage(BM_GETCHECK, 0L, 0L))
@@ -24,36 +23,33 @@ END_MESSAGE_MAP()
 
 CBarcodeTypesDlg::CBarcodeTypesDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_DIALOG_BARCODE_TYPES, pParent)
-	, m_uBarcodeFormats(0)
-	, m_bAllCodesEnabled(TRUE)
-	, m_bLinearCodeEnabled(TRUE)
-	, m_bMatrixCodeEnabled(TRUE)
-	, m_barcodeColStartX(0)
-	, m_barcodeColumnWidth(0)
+	, m_uBarcodeFormats(BarcodeFormat_None)
+	, m_uBarcodeColStartX(0)
+	, m_uBarcodeColWidth(0)
 {
-	m_barcodeMap[IDC_CHECK_BARCODE_AZTEC] = BarcodeFormat_Aztec;
-	m_barcodeMap[IDC_CHECK_BARCODE_CODABAR] = BarcodeFormat_Codabar;
-	m_barcodeMap[IDC_CHECK_BARCODE_CODE39] = BarcodeFormat_Code39;
-	m_barcodeMap[IDC_CHECK_BARCODE_CODE93] = BarcodeFormat_Code93;
-	m_barcodeMap[IDC_CHECK_BARCODE_CODE128] = BarcodeFormat_Code128;
-	m_barcodeMap[IDC_CHECK_BARCODE_DATABAR] = BarcodeFormat_DataBar;
-	m_barcodeMap[IDC_CHECK_BARCODE_DATABAR_EXPANDED] = BarcodeFormat_DataBarExpanded;
-	m_barcodeMap[IDC_CHECK_BARCODE_DATA_MATRIX] = BarcodeFormat_DataMatrix;
-	m_barcodeMap[IDC_CHECK_BARCODE_EAN8] = BarcodeFormat_EAN8;
-	m_barcodeMap[IDC_CHECK_BARCODE_EAN13] = BarcodeFormat_EAN13;
-	m_barcodeMap[IDC_CHECK_BARCODE_ITF] = BarcodeFormat_ITF;
-	m_barcodeMap[IDC_CHECK_BARCODE_MAXI_CODE] = BarcodeFormat_MaxiCode;
-	m_barcodeMap[IDC_CHECK_BARCODE_PDF417] = BarcodeFormat_PDF417;
-	m_barcodeMap[IDC_CHECK_BARCODE_QR_CODE] = BarcodeFormat_QRCode;
-	m_barcodeMap[IDC_CHECK_BARCODE_UPCA] = BarcodeFormat_UPCA;
-	m_barcodeMap[IDC_CHECK_BARCODE_UPCE] = BarcodeFormat_UPCE;
-	m_barcodeMap[IDC_CHECK_BARCODE_MICRO_QR_CODE] = BarcodeFormat_MicroQRCode;
-	m_barcodeMap[IDC_CHECK_BARCODE_RM_QR_CODE] = BarcodeFormat_RMQRCode;
-	m_barcodeMap[IDC_CHECK_BARCODE_DX_FILM_EDGE] = BarcodeFormat_DXFilmEdge;
-	m_barcodeMap[IDC_CHECK_BARCODE_DATABAR_LIMITED] = BarcodeFormat_DataBarLimited;
-	m_barcodeMap[IDC_CHECK_BARCODE_LINEAR] = BarcodeFormat_LinearCodes;
-	m_barcodeMap[IDC_CHECK_BARCODE_MATRIX] = BarcodeFormat_MatrixCodes;
-	m_barcodeMap[IDC_CHECK_BARCODE_ALL] = BarcodeFormat_Any;
+	m_barcodeMap[IDC_CHECK_BARCODE_AZTEC] = std::make_shared<BarcodePair>(BarcodeFormat_Aztec, 0);
+	m_barcodeMap[IDC_CHECK_BARCODE_CODABAR] = std::make_shared<BarcodePair>(BarcodeFormat_Codabar, 0);
+	m_barcodeMap[IDC_CHECK_BARCODE_CODE39] = std::make_shared<BarcodePair>(BarcodeFormat_Code39, 0);
+	m_barcodeMap[IDC_CHECK_BARCODE_CODE93] = std::make_shared<BarcodePair>(BarcodeFormat_Code93, 0);
+	m_barcodeMap[IDC_CHECK_BARCODE_CODE128] = std::make_shared<BarcodePair>(BarcodeFormat_Code128, 0);
+	m_barcodeMap[IDC_CHECK_BARCODE_DATABAR] = std::make_shared<BarcodePair>(BarcodeFormat_DataBar, 0);
+	m_barcodeMap[IDC_CHECK_BARCODE_DATABAR_EXPANDED] = std::make_shared<BarcodePair>(BarcodeFormat_DataBarExpanded, 0);
+	m_barcodeMap[IDC_CHECK_BARCODE_DATA_MATRIX] = std::make_shared<BarcodePair>(BarcodeFormat_DataMatrix, 0);
+	m_barcodeMap[IDC_CHECK_BARCODE_EAN8] = std::make_shared<BarcodePair>(BarcodeFormat_EAN8, 0);
+	m_barcodeMap[IDC_CHECK_BARCODE_EAN13] = std::make_shared<BarcodePair>(BarcodeFormat_EAN13, 0);
+	m_barcodeMap[IDC_CHECK_BARCODE_ITF] = std::make_shared<BarcodePair>(BarcodeFormat_ITF, 0);
+	m_barcodeMap[IDC_CHECK_BARCODE_MAXI_CODE] = std::make_shared<BarcodePair>(BarcodeFormat_MaxiCode, 0);
+	m_barcodeMap[IDC_CHECK_BARCODE_PDF417] = std::make_shared<BarcodePair>(BarcodeFormat_PDF417, 0);
+	m_barcodeMap[IDC_CHECK_BARCODE_QR_CODE] = std::make_shared<BarcodePair>(BarcodeFormat_QRCode, 0);
+	m_barcodeMap[IDC_CHECK_BARCODE_UPCA] = std::make_shared<BarcodePair>(BarcodeFormat_UPCA, 0);
+	m_barcodeMap[IDC_CHECK_BARCODE_UPCE] = std::make_shared<BarcodePair>(BarcodeFormat_UPCE, 0);
+	m_barcodeMap[IDC_CHECK_BARCODE_MICRO_QR_CODE] = std::make_shared<BarcodePair>(BarcodeFormat_MicroQRCode, 0);
+	m_barcodeMap[IDC_CHECK_BARCODE_RM_QR_CODE] = std::make_shared<BarcodePair>(BarcodeFormat_RMQRCode, 0);
+	m_barcodeMap[IDC_CHECK_BARCODE_DX_FILM_EDGE] = std::make_shared<BarcodePair>(BarcodeFormat_DXFilmEdge, 0);
+	m_barcodeMap[IDC_CHECK_BARCODE_DATABAR_LIMITED] = std::make_shared<BarcodePair>(BarcodeFormat_DataBarLimited, 0);
+	m_barcodeMap[IDC_CHECK_BARCODE_LINEAR] = std::make_shared<BarcodePair>(BarcodeFormat_LinearCodes, 0);
+	m_barcodeMap[IDC_CHECK_BARCODE_MATRIX] = std::make_shared<BarcodePair>(BarcodeFormat_MatrixCodes, 0);
+	m_barcodeMap[IDC_CHECK_BARCODE_ALL] = std::make_shared<BarcodePair>(BarcodeFormat_Any, 0);
 }
 
 CBarcodeTypesDlg::~CBarcodeTypesDlg()
@@ -64,44 +60,62 @@ void CBarcodeTypesDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
 
-	DDX_Check(pDX, IDC_CHECK_BARCODE_ALL, m_bAllCodesEnabled);
-	DDX_Check(pDX, IDC_CHECK_BARCODE_LINEAR, m_bLinearCodeEnabled);
-	DDX_Check(pDX, IDC_CHECK_BARCODE_MATRIX, m_bMatrixCodeEnabled);
-	DDX_Check(pDX, IDC_CHECK_BARCODE_AZTEC, m_bAztecEnabled);
-	DDX_Check(pDX, IDC_CHECK_BARCODE_CODABAR, m_bCodabarEnabled);
-	DDX_Check(pDX, IDC_CHECK_BARCODE_CODE39, m_bCode39Enabled);
-	DDX_Check(pDX, IDC_CHECK_BARCODE_CODE93, m_bCode93Enabled);
-	DDX_Check(pDX, IDC_CHECK_BARCODE_CODE128, m_bCode128Enabled);
-	DDX_Check(pDX, IDC_CHECK_BARCODE_DATABAR, m_bDataBarEnabled);
-	DDX_Check(pDX, IDC_CHECK_BARCODE_DATABAR_EXPANDED, m_bDataBarExpandedEnabled);
-	DDX_Check(pDX, IDC_CHECK_BARCODE_DATA_MATRIX, m_bDataMatrixEnabled);
-	DDX_Check(pDX, IDC_CHECK_BARCODE_EAN8, m_bEAN8Enabled);
-	DDX_Check(pDX, IDC_CHECK_BARCODE_EAN13, m_bEAN13Enabled);
-	DDX_Check(pDX, IDC_CHECK_BARCODE_ITF, m_bITFEnabled);
-	DDX_Check(pDX, IDC_CHECK_BARCODE_MAXI_CODE, m_bMaxiCodeEnabled);
-	DDX_Check(pDX, IDC_CHECK_BARCODE_PDF417, m_bPDF417Enabled);
-	DDX_Check(pDX, IDC_CHECK_BARCODE_QR_CODE, m_bQRCode);
-	DDX_Check(pDX, IDC_CHECK_BARCODE_UPCA, m_bUPCAEnabled);
-	DDX_Check(pDX, IDC_CHECK_BARCODE_UPCE, m_bUPCEEnabled);
-	DDX_Check(pDX, IDC_CHECK_BARCODE_MICRO_QR_CODE, m_bMicroQRCodeEnabled);
-	DDX_Check(pDX, IDC_CHECK_BARCODE_RM_QR_CODE, m_bRMQRCodeEnabled);
-	DDX_Check(pDX, IDC_CHECK_BARCODE_DX_FILM_EDGE, m_bDXFilmEdgeEnabled);
-	DDX_Check(pDX, IDC_CHECK_BARCODE_DATABAR_LIMITED, m_bDataBarLimited);
-	DDX_Text(pDX, IDC_EDIT_COLUMN_START_X, m_barcodeColStartX);
-	DDV_MinMaxUInt(pDX, m_barcodeColStartX, 0, UINT_MAX);
-	DDX_Text(pDX, IDC_EDIT_COLUMN_WIDTH, m_barcodeColumnWidth);
-	DDV_MinMaxUInt(pDX, m_barcodeColumnWidth, 0, UINT_MAX);
+	for (int nIDC = IDC_CHECK_BARCODE_ALL; nIDC <= IDC_CHECK_BARCODE_RM_QR_CODE; nIDC++)
+		DDX_Check(pDX, nIDC, m_barcodeMap[nIDC]->bChecked);
+	
+	DDX_Text(pDX, IDC_EDIT_COLUMN_START_X, m_uBarcodeColStartX);
+	DDV_MinMaxUInt(pDX, m_uBarcodeColStartX, 0, UINT_MAX);
+	DDX_Text(pDX, IDC_EDIT_COLUMN_WIDTH, m_uBarcodeColWidth);
+	DDV_MinMaxUInt(pDX, m_uBarcodeColWidth, 0, UINT_MAX);
 }
 
 BOOL CBarcodeTypesDlg::OnInitDialog()
 {
-	EnableLinearCodes(!m_bLinearCodeEnabled);
-	EnableMatrixCodes(!m_bMatrixCodeEnabled);
+	InitBarcodes();
 
-	GetDlgItem(IDC_CHECK_BARCODE_LINEAR)->EnableWindow(!m_bAllCodesEnabled);
-	GetDlgItem(IDC_CHECK_BARCODE_MATRIX)->EnableWindow(!m_bAllCodesEnabled);
+	EnableLinearCodes(!m_barcodeMap[IDC_CHECK_BARCODE_LINEAR]->bChecked);
+	EnableMatrixCodes(!m_barcodeMap[IDC_CHECK_BARCODE_MATRIX]->bChecked);
+
+	GetDlgItem(IDC_CHECK_BARCODE_LINEAR)->EnableWindow(!m_barcodeMap[IDC_CHECK_BARCODE_ALL]->bChecked);
+	GetDlgItem(IDC_CHECK_BARCODE_MATRIX)->EnableWindow(!m_barcodeMap[IDC_CHECK_BARCODE_ALL]->bChecked);
 
 	return CDialogEx::OnInitDialog();
+}
+
+void CBarcodeTypesDlg::InitBarcodes()
+{
+	if ((m_uBarcodeFormats & BarcodeFormat_Any) == BarcodeFormat_Any)
+	{
+		m_barcodeMap[IDC_CHECK_BARCODE_ALL]->bChecked = TRUE;
+		m_barcodeMap[IDC_CHECK_BARCODE_LINEAR]->bChecked = TRUE;
+		m_barcodeMap[IDC_CHECK_BARCODE_MATRIX]->bChecked = TRUE;
+	}
+	else
+	{
+		if ((m_uBarcodeFormats & BarcodeFormat_LinearCodes) == BarcodeFormat_LinearCodes)
+		{
+			m_barcodeMap[IDC_CHECK_BARCODE_LINEAR]->bChecked = TRUE;
+		}
+		else
+		{
+			for (UINT mc = IDC_CHECK_BARCODE_CODABAR; mc <= IDC_CHECK_BARCODE_UPCE; mc++)
+			{
+				m_barcodeMap[mc]->bChecked = m_uBarcodeFormats & m_barcodeMap[mc]->eBarcodeFormat ? TRUE : FALSE;
+			}
+		}
+
+		if ((m_uBarcodeFormats & BarcodeFormat_MatrixCodes) == BarcodeFormat_MatrixCodes)
+		{
+			m_barcodeMap[IDC_CHECK_BARCODE_MATRIX]->bChecked = TRUE;
+		}
+		else
+		{
+			for (UINT mc = IDC_CHECK_BARCODE_AZTEC; mc <= IDC_CHECK_BARCODE_RM_QR_CODE; mc++)
+			{
+				m_barcodeMap[mc]->bChecked = m_uBarcodeFormats & m_barcodeMap[mc]->eBarcodeFormat ? TRUE : FALSE;
+			}
+		}
+	}
 }
 
 void CBarcodeTypesDlg::EnableLinearCodes(bool bEnable)
@@ -116,6 +130,21 @@ void CBarcodeTypesDlg::EnableMatrixCodes(bool bEnable)
 		GetDlgItem(mc)->EnableWindow(bEnable);
 }
 
+void CBarcodeTypesDlg::SetBarcodeFormats(UINT uBarcodeFormats)
+{
+	m_uBarcodeFormats = uBarcodeFormats;
+}
+
+void CBarcodeTypesDlg::SetBarcodeColStartX(UINT uBarcodeColStartX)
+{
+	m_uBarcodeColStartX = uBarcodeColStartX;
+}
+
+void CBarcodeTypesDlg::SetBarcodeColWidth(UINT uBarcodeColWidth)
+{
+	m_uBarcodeColWidth = uBarcodeColWidth;
+}
+
 UINT CBarcodeTypesDlg::GetBarcodeFormats()
 {
 	return m_uBarcodeFormats;
@@ -123,12 +152,12 @@ UINT CBarcodeTypesDlg::GetBarcodeFormats()
 
 UINT CBarcodeTypesDlg::GetBarcodeColumnStartX()
 {
-	return m_barcodeColStartX;
+	return m_uBarcodeColStartX;
 }
 
 UINT CBarcodeTypesDlg::GetBarcodeColumnWidth()
 {
-	return m_barcodeColumnWidth;
+	return m_uBarcodeColWidth;
 }
 
 // CBarcodeTypesDlg message handlers
@@ -139,20 +168,20 @@ void CBarcodeTypesDlg::OnBnClickedCheckBarcodeAll()
 	OnBnClickedCheckBarcodeLinear();
 	OnBnClickedCheckBarcodeMatrix();
 
-	GetDlgItem(IDC_CHECK_BARCODE_LINEAR)->EnableWindow(!m_bAllCodesEnabled);
-	GetDlgItem(IDC_CHECK_BARCODE_MATRIX)->EnableWindow(!m_bAllCodesEnabled);
+	GetDlgItem(IDC_CHECK_BARCODE_LINEAR)->EnableWindow(!m_barcodeMap[IDC_CHECK_BARCODE_ALL]->bChecked);
+	GetDlgItem(IDC_CHECK_BARCODE_MATRIX)->EnableWindow(!m_barcodeMap[IDC_CHECK_BARCODE_ALL]->bChecked);
 }
 
 void CBarcodeTypesDlg::OnBnClickedCheckBarcodeLinear()
 {
 	UpdateData(TRUE);
-	EnableLinearCodes(m_bAllCodesEnabled ? FALSE : !m_bLinearCodeEnabled);
+	EnableLinearCodes(m_barcodeMap[IDC_CHECK_BARCODE_ALL]->bChecked ? FALSE : !m_barcodeMap[IDC_CHECK_BARCODE_LINEAR]->bChecked);
 }
 
 void CBarcodeTypesDlg::OnBnClickedCheckBarcodeMatrix()
 {
 	UpdateData(TRUE);
-	EnableMatrixCodes(m_bAllCodesEnabled ? FALSE : !m_bMatrixCodeEnabled);
+	EnableMatrixCodes(m_barcodeMap[IDC_CHECK_BARCODE_ALL]->bChecked ? FALSE : !m_barcodeMap[IDC_CHECK_BARCODE_MATRIX]->bChecked);
 }
 
 void CBarcodeTypesDlg::OnBnClickedOk()
@@ -161,25 +190,25 @@ void CBarcodeTypesDlg::OnBnClickedOk()
 
 	m_uBarcodeFormats = 0;
 
-	if (m_bAllCodesEnabled)
-		m_uBarcodeFormats = m_barcodeMap[IDC_CHECK_BARCODE_ALL];
+	if (m_barcodeMap[IDC_CHECK_BARCODE_ALL]->bChecked)
+		m_uBarcodeFormats = m_barcodeMap[IDC_CHECK_BARCODE_ALL]->eBarcodeFormat;
 
-	if (m_bLinearCodeEnabled)
-		m_uBarcodeFormats |= m_barcodeMap[IDC_CHECK_BARCODE_LINEAR];
+	if (m_barcodeMap[IDC_CHECK_BARCODE_LINEAR]->bChecked)
+		m_uBarcodeFormats |= m_barcodeMap[IDC_CHECK_BARCODE_LINEAR]->eBarcodeFormat;
 	else
 	{
 		for (UINT lc = IDC_CHECK_BARCODE_CODABAR; lc <= IDC_CHECK_BARCODE_UPCE; lc++)
 		{
-			m_uBarcodeFormats |= IsChecked(lc) ? m_barcodeMap[lc] : 0;
+			m_uBarcodeFormats |= IsChecked(lc) ? m_barcodeMap[lc]->eBarcodeFormat : 0;
 		}
 	}
 
-	if (m_bMatrixCodeEnabled)
-		m_uBarcodeFormats |= m_barcodeMap[IDC_CHECK_BARCODE_MATRIX];
+	if (m_barcodeMap[IDC_CHECK_BARCODE_MATRIX]->bChecked)
+		m_uBarcodeFormats |= m_barcodeMap[IDC_CHECK_BARCODE_MATRIX]->eBarcodeFormat;
 	else
 	{
 		for (UINT mc = IDC_CHECK_BARCODE_AZTEC; mc <= IDC_CHECK_BARCODE_RM_QR_CODE; mc++)
-			m_uBarcodeFormats |= IsChecked(mc) ? m_barcodeMap[mc] : 0;
+			m_uBarcodeFormats |= IsChecked(mc) ? m_barcodeMap[mc]->eBarcodeFormat : 0;
 	}
 
 	CDialogEx::OnOK();
