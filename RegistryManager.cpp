@@ -100,11 +100,7 @@ void CRegistryManager::DoDataExchange(CDataExchange* pDX)
 		DDX_Text(pDX, regFlagManager.first, regFlagManager.second->strRegFlagName);
 
 	DDX_Text(pDX, IDC_EDIT_REG_SUB_KEY, m_strSubKey);
-	//DDX_Text(pDX, IDC_EDIT_REG_AOI_FLAG, m_strAoiRegFlagName);
-	//DDX_Text(pDX, IDC_EDIT_REG_SNAPSHOT_FLAG, m_strSnapshotRegFlagName);
-	//DDX_Text(pDX, IDC_EDIT_REG_START_STOP_FLAG, m_strStartStopRegFlagName);
 	DDX_Text(pDX, IDC_EDIT_REG_SNAPSHOT_DIR, m_strSnapshotDirRegKeyName);
-	//DDX_Text(pDX, IDC_EDIT_REG_BARCODE_FLAG, m_strBarcodeRegFlagName);
 	DDX_Control(pDX, IDC_COMBO_REG_AOI_PARENT_KEY, m_comboParentKey);
 }
 
@@ -463,6 +459,27 @@ void CRegistryManager::WriteBarcodesToReg(BarcodeList* pBarcodeList)
 	}
 }
 
+LSTATUS CRegistryManager::RegQueryDWORDValue(CRegKey& regKey, LPCTSTR pszValueName, DWORD& dwValue, DWORD dwDefaultValue)
+{
+	LSTATUS lStatus = regKey.QueryDWORDValue(pszValueName, dwValue);
+	if (lStatus != ERROR_SUCCESS)
+		dwValue = dwDefaultValue;
+
+	return lStatus;
+}
+
+LSTATUS CRegistryManager::RegQueryStringValue(CRegKey& regKey, LPCTSTR pszValueName, std::string& strValue)
+{
+	char pszRegStr[512];
+	ULONG unRegStrSize = sizeof(pszRegStr);
+
+	LSTATUS lStatus = regKey.QueryStringValue(pszValueName, pszRegStr, &unRegStrSize);
+	if (lStatus == ERROR_SUCCESS)
+		strValue = pszRegStr;
+
+	return lStatus;
+}
+
 BOOL CRegistryManager::GetAppSettings(RegAppSettings& appSettings)
 {
 	CRegKey regKey;
@@ -471,69 +488,26 @@ BOOL CRegistryManager::GetAppSettings(RegAppSettings& appSettings)
 	if (lStatus != ERROR_SUCCESS)
 		return FALSE;
 
-	char pszRegStr[512];
-	ULONG unRegStrSize = sizeof(pszRegStr);
+	/* General Settings */
+	lStatus = RegQueryDWORDValue(regKey, REG_AUTO_START, (DWORD&)appSettings.bAutoStart, FALSE);
+	lStatus = RegQueryStringValue(regKey, REG_CAMERA_NAME_VALUE, appSettings.strCameraName);
+	lStatus = RegQueryStringValue(regKey, REG_SOURCE_VALUE, appSettings.strSource);
+	lStatus = RegQueryStringValue(regKey, REG_SINK_VALUE, appSettings.strSink);
 
-	lStatus = regKey.QueryDWORDValue(REG_AUTO_START, (DWORD&) appSettings.bAutoStart);
-	if (lStatus != ERROR_SUCCESS)
-		appSettings.bAutoStart = FALSE;
-
-	lStatus = regKey.QueryStringValue(REG_CAMERA_NAME_VALUE, pszRegStr, &unRegStrSize);
-	if (lStatus == ERROR_SUCCESS)
-		appSettings.strCameraName = pszRegStr;
-
-	unRegStrSize = sizeof(pszRegStr);
-	lStatus = regKey.QueryStringValue(REG_SOURCE_VALUE, pszRegStr, &unRegStrSize);
-	if (lStatus == ERROR_SUCCESS)
-		appSettings.strSource = pszRegStr;
-
-	unRegStrSize = sizeof(pszRegStr);
-	lStatus = regKey.QueryStringValue(REG_SINK_VALUE, pszRegStr, &unRegStrSize);
-	if (lStatus == ERROR_SUCCESS)
-		appSettings.strSink = pszRegStr;
-
-	unRegStrSize = sizeof(pszRegStr);
-	lStatus = regKey.QueryStringValue(REG_MEDIA_TYPE, pszRegStr, &unRegStrSize);
-	if (lStatus == ERROR_SUCCESS)
-		appSettings.strMediaType = pszRegStr;
-
-	unRegStrSize = sizeof(pszRegStr);
-	lStatus = regKey.QueryStringValue(REG_FORMAT, pszRegStr, &unRegStrSize);
-	if (lStatus == ERROR_SUCCESS)
-		appSettings.strFormat = pszRegStr;
-
-	lStatus = regKey.QueryDWORDValue(REG_WIDTH, (DWORD&)appSettings.iWidth);
-	if (lStatus != ERROR_SUCCESS)
-		appSettings.iWidth = -1;
-
-	lStatus = regKey.QueryDWORDValue(REG_HEIGHT, (DWORD&)appSettings.iHeight);
-	if (lStatus != ERROR_SUCCESS)
-		appSettings.iHeight = -1;
-
-	lStatus = regKey.QueryDWORDValue(REG_FRAMERATE_NUM, (DWORD&)appSettings.iFramerateNum);
-	if (lStatus != ERROR_SUCCESS)
-		appSettings.iFramerateNum = -1;
-
-	lStatus = regKey.QueryDWORDValue(REG_FRAMERATE_DEN, (DWORD&)appSettings.iFramerateDen);
-	if (lStatus != ERROR_SUCCESS)
-		appSettings.iFramerateDen = -1;
-
-	lStatus = regKey.QueryDWORDValue(REG_BARCODE_FORMATS, (DWORD&)appSettings.uBarcodeFormats);
-	if (lStatus != ERROR_SUCCESS)
-		appSettings.uBarcodeFormats = 0xFFFFFFFFu;
-
-	lStatus = regKey.QueryDWORDValue(REG_BARCODE_COL_START_X, (DWORD&)appSettings.uBarcodeColStartX);
-	if (lStatus != ERROR_SUCCESS)
-		appSettings.uBarcodeColStartX = 0;
-
-	lStatus = regKey.QueryDWORDValue(REG_BARCODE_COL_WIDTH, (DWORD&)appSettings.uBarcodeColWidth);
-	if (lStatus != ERROR_SUCCESS)
-		appSettings.uBarcodeColWidth = 0;
-
-	lStatus = regKey.QueryDWORDValue(REG_BARCODE_ENABLED, (DWORD&)appSettings.bBarcodeEnabled);
-	if (lStatus != ERROR_SUCCESS)
-		appSettings.bBarcodeEnabled = FALSE;
+	/* Media format Settings */
+	lStatus = RegQueryStringValue(regKey, REG_MEDIA_TYPE, appSettings.strMediaType);
+	lStatus = RegQueryStringValue(regKey, REG_FORMAT, appSettings.strFormat);
+	lStatus = RegQueryDWORDValue(regKey, REG_WIDTH, (DWORD&)appSettings.iWidth, -1);
+	lStatus = RegQueryDWORDValue(regKey, REG_HEIGHT, (DWORD&)appSettings.iHeight, -1);
+	lStatus = RegQueryDWORDValue(regKey, REG_FRAMERATE_NUM, (DWORD&)appSettings.iFramerateNum, -1);
+	lStatus = RegQueryDWORDValue(regKey, REG_FRAMERATE_DEN, (DWORD&)appSettings.iFramerateDen, -1);
 	
+	/* Barcode Settings */
+	lStatus = RegQueryDWORDValue(regKey, REG_BARCODE_FORMATS, (DWORD&)appSettings.uBarcodeFormats, 0xFFFFFFFFu);
+	lStatus = RegQueryDWORDValue(regKey, REG_BARCODE_COL_START_X, (DWORD&)appSettings.uBarcodeColStartX, 0);
+	lStatus = RegQueryDWORDValue(regKey, REG_BARCODE_COL_WIDTH, (DWORD&)appSettings.uBarcodeColWidth, 0);
+	lStatus = RegQueryDWORDValue(regKey, REG_BARCODE_ENABLED, (DWORD&)appSettings.bBarcodeEnabled, FALSE);
+
 	regKey.Close();
 
 	return TRUE;

@@ -78,6 +78,9 @@ protected:
 
 	void Monitor(RegFlagManagerPtr pRegFlagManager);
 
+	static LSTATUS RegQueryDWORDValue(CRegKey& regKey, LPCTSTR pszValueName, DWORD& dwValue, DWORD dwDefaultValue);
+	static LSTATUS RegQueryStringValue(CRegKey& regKey, LPCTSTR pszValueName, std::string& strValue);
+
 public:
 	void WritePrintPartitionsResultsToReg(const char* pJsonStr);
 	const char* ReadPrintPartitionsFromReg();
