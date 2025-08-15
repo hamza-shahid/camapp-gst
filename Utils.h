@@ -12,6 +12,9 @@ private:
 
 	static BOOL SaveBGRXToJPEG(const BYTE* pBgrxData, int nWidth, int nHeight, std::string filename);
 	static BOOL SaveYUY2ToJPEG(const BYTE* pYuy2Data, int nWidth, int nHeight, std::string filename);
+	static BOOL SaveBGRXToPNG(const BYTE* pBgrxData, int nWidth, int nHeight, std::string filename);
+	static BOOL SaveYUY2ToPNG(const BYTE* pYuy2Data, int nWidth, int nHeight, std::string filename);
+	static BOOL SaveBGRXToFile(const BYTE* pBgrxData, int nWidth, int nHeight, std::string filename, CLSID clsidEncoder);
 
 public:
 	static std::string GetExecutableFolderPath();
@@ -19,7 +22,7 @@ public:
 	static void InitGdiPlus();
 	static void DeInitGdiPlus();
 	
-	static BOOL SaveFrameToFile(const BYTE* pFrameBuffer, int nWidth, int nHeight, std::string format, std::string filename);
+	static BOOL SaveFrameToFile(const BYTE* pFrameBuffer, int nWidth, int nHeight, std::string format, std::string filename, std::string ext);
 	
 	static int GetNextFileNumberInSeq(const char* pFileDir, const char* pFileNamePrefix, const char* pExt);
 	

@@ -7,6 +7,7 @@
 #include "afxdialogex.h"
 
 #include <cjson/cJSON.h>
+#include <chrono>
 
 
 #define REG_HKEY				HKEY_LOCAL_MACHINE
@@ -32,9 +33,31 @@
 #define REG_BARCODE_ENABLED		"BarcodeEnabled"
 
 
+using namespace std::chrono_literals;
+
 // CRegistrySettings dialog
 
 IMPLEMENT_DYNAMIC(CRegistryManager, CDialogEx)
+
+void CRegistryManager::NewRegFlagManager(
+	CString strRegKeyValueName,
+	int nEditBoxId,
+	UINT uOnChangeMsg,
+	DWORD dwDefaultVal,
+	DWORD dwPrevVal,
+	RegNotPolicy eNotifyPolicy,
+	std::chrono::milliseconds waitInterval
+)
+{
+	m_regFlags[nEditBoxId] = std::make_shared<RegFlagManager>();
+	m_regFlags[nEditBoxId]->strRegFlagName = strRegKeyValueName;
+	m_regFlags[nEditBoxId]->nEditBoxId = nEditBoxId;
+	m_regFlags[nEditBoxId]->uiOnChangeMsg = uOnChangeMsg;
+	m_regFlags[nEditBoxId]->dwDefaultValue = dwDefaultVal;
+	m_regFlags[nEditBoxId]->dwPrevValue = dwPrevVal;
+	m_regFlags[nEditBoxId]->eNotPolicy = eNotifyPolicy;
+	m_regFlags[nEditBoxId]->waitInterval = waitInterval;
+}
 
 CRegistryManager::CRegistryManager(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_DIALOG_REG_SETTINGS, pParent)
@@ -50,41 +73,10 @@ CRegistryManager::CRegistryManager(CWnd* pParent /*=nullptr*/)
 	m_strSubKey					= REG_SUB_KEY;
 	m_strSnapshotDirRegKeyName	= REG_SNAPSHOT_DIR_NAME;
 
-	RegFlagManagerPtr pAoiRegFlagManager		= std::make_shared<RegFlagManager>();
-	pAoiRegFlagManager->strRegFlagName			= REG_AOI_KEY_NAME;
-	pAoiRegFlagManager->nEditBoxId				= IDC_EDIT_REG_AOI_FLAG;
-	pAoiRegFlagManager->uiOnChangeMsg			= WM_PRINT_ANALYSIS_AOI_PARTITIONS_READY;
-	pAoiRegFlagManager->dwDefaultValue			= 1;
-	pAoiRegFlagManager->dwPrevValue				= 1;
-	pAoiRegFlagManager->eNotPolicy				= ON_INTERVAL;
-	m_regFlags[IDC_EDIT_REG_AOI_FLAG]			= pAoiRegFlagManager;
-
-	RegFlagManagerPtr pSnapshotRegFlagManager	= std::make_shared<RegFlagManager>();
-	pSnapshotRegFlagManager->strRegFlagName		= REG_SNAPSHOT_KEY_NAME;
-	pSnapshotRegFlagManager->nEditBoxId			= IDC_EDIT_REG_SNAPSHOT_FLAG;
-	pSnapshotRegFlagManager->uiOnChangeMsg		= WM_TAKE_SNAPSHOT;
-	pSnapshotRegFlagManager->dwDefaultValue		= 1;
-	pSnapshotRegFlagManager->dwPrevValue		= 1;
-	pSnapshotRegFlagManager->eNotPolicy			= ON_INTERVAL;
-	m_regFlags[IDC_EDIT_REG_SNAPSHOT_FLAG]		= pSnapshotRegFlagManager;
-	
-	RegFlagManagerPtr pBarcodeRegFlagManager	= std::make_shared<RegFlagManager>();
-	pBarcodeRegFlagManager->strRegFlagName		= REG_BARCODE_ENABLED;
-	pBarcodeRegFlagManager->nEditBoxId			= IDC_EDIT_REG_BARCODE_FLAG;
-	pBarcodeRegFlagManager->uiOnChangeMsg		= WM_BARCODE_SCAN_REG;
-	pBarcodeRegFlagManager->dwDefaultValue		= 0;
-	pBarcodeRegFlagManager->dwPrevValue			= 0;
-	pBarcodeRegFlagManager->eNotPolicy			= ON_UPDATE;
-	m_regFlags[IDC_EDIT_REG_BARCODE_FLAG]		= pBarcodeRegFlagManager;
-	
-	RegFlagManagerPtr pStartStopRegFlagManager	= std::make_shared<RegFlagManager>();
-	pStartStopRegFlagManager->strRegFlagName	= REG_START_STOP_PREVIEW;
-	pStartStopRegFlagManager->nEditBoxId		= IDC_EDIT_REG_START_STOP_FLAG;
-	pStartStopRegFlagManager->uiOnChangeMsg		= WM_START_STOP_PREVIEW_REG;
-	pStartStopRegFlagManager->dwDefaultValue	= 0;
-	pStartStopRegFlagManager->dwPrevValue		= 0;
-	pStartStopRegFlagManager->eNotPolicy		= ON_UPDATE;
-	m_regFlags[IDC_EDIT_REG_START_STOP_FLAG]	= pStartStopRegFlagManager;
+	NewRegFlagManager(REG_AOI_KEY_NAME, IDC_EDIT_REG_AOI_FLAG, WM_PRINT_ANALYSIS_AOI_PARTITIONS_READY, 1, 1, ON_INTERVAL, 1000ms);
+	NewRegFlagManager(REG_SNAPSHOT_KEY_NAME, IDC_EDIT_REG_SNAPSHOT_FLAG, WM_TAKE_SNAPSHOT, 1, 1, ON_INTERVAL, 2000ms);
+	NewRegFlagManager(REG_BARCODE_ENABLED, IDC_EDIT_REG_BARCODE_FLAG, WM_BARCODE_SCAN_REG, 0, 0, ON_UPDATE, 1000ms);
+	NewRegFlagManager(REG_START_STOP_PREVIEW, IDC_EDIT_REG_START_STOP_FLAG, WM_START_STOP_PREVIEW_REG, 0, 0, ON_UPDATE, 1000ms);
 }
 
 CRegistryManager::~CRegistryManager()
@@ -408,7 +400,7 @@ void CRegistryManager::Monitor(RegFlagManagerPtr pRegFlagManager)
 				}
 			}
 
-			std::this_thread::sleep_for(std::chrono::seconds(1));
+			std::this_thread::sleep_for(pRegFlagManager->waitInterval);
 		}
 		regKey.Close();
 	}

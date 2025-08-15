@@ -27,6 +27,8 @@ struct RegFlagManager
 	DWORD			dwDefaultValue;
 	DWORD			dwPrevValue;
 	RegNotPolicy	eNotPolicy;
+
+	std::chrono::milliseconds waitInterval;
 };
 
 typedef std::shared_ptr<RegFlagManager>	RegFlagManagerPtr;
@@ -77,6 +79,16 @@ protected:
 	LSTATUS ReadString(std::string strKeyName, std::string& strKeyValue);
 
 	void Monitor(RegFlagManagerPtr pRegFlagManager);
+
+	void NewRegFlagManager(
+		CString strRegKeyValueName,
+		int nEditBoxId,
+		UINT uOnChangeMsg,
+		DWORD dwDefaultVal,
+		DWORD dwPrevVal,
+		RegNotPolicy eNotifyPolicy,
+		std::chrono::milliseconds waitInterval
+	);
 
 	static LSTATUS RegQueryDWORDValue(CRegKey& regKey, LPCTSTR pszValueName, DWORD& dwValue, DWORD dwDefaultValue);
 	static LSTATUS RegQueryStringValue(CRegKey& regKey, LPCTSTR pszValueName, std::string& strValue);

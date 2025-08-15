@@ -742,20 +742,21 @@ LRESULT CMainFrame::OnBarcodeReaderFilterNotFound(WPARAM wParam, LPARAM lParam)
 
 void CMainFrame::OnSnapshot()
 {
-	CFileDialog dlg(FALSE, _T("jpg"), _T("snapshot"),
+	CFileDialog dlg(FALSE, _T("png"), _T("snapshot"),
 		OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY,
-		_T("JPEG Files (*.jpeg;*.jpg)|*.jpeg;*.jpg|All Files (*.*)|*.*||"));
+		_T("PNG Files (*.png)|*.png|JPEG Files (*.jpeg;*.jpg)|*.jpeg;*.jpg||"));
 
 	if (dlg.DoModal() == IDOK)
 	{
 		CString filePath = dlg.GetPathName();
+		CString ext = dlg.GetFileExt().MakeLower();
 		BYTE* pBuffer = NULL;
 		int nSize, nWidth, nHeight;
 		std::string format;
 
 		if (m_gstPlayer.GetSnapshot(&pBuffer, nSize, nWidth, nHeight, format))
 		{
-			CUtils::SaveFrameToFile(pBuffer, nWidth, nHeight, format, filePath.GetBuffer());
+			CUtils::SaveFrameToFile(pBuffer, nWidth, nHeight, format, filePath.GetBuffer(), ext.GetBuffer());
 		}
 		else
 		{
@@ -940,14 +941,12 @@ LRESULT CMainFrame::OnRegistrySnapshot(WPARAM wParam, LPARAM lParam)
 			if (m_gstPlayer.GetSnapshot(&pBuffer, nSize, nWidth, nHeight, format))
 			{
 				std::string snapshotPrefix = "snap_";
-				std::string snapshotExt = "jpg";
+				std::string snapshotExt = "png";
 				int iSnapshotNo = CUtils::GetNextFileNumberInSeq(snapshotDir.c_str(), snapshotPrefix.c_str(), snapshotExt.c_str());
 				std::string snapshotFile = snapshotDir + "\\" + snapshotPrefix + std::to_string(iSnapshotNo) + "." + snapshotExt;
 
-				if (CUtils::SaveFrameToFile(pBuffer, nWidth, nHeight, format, snapshotFile.c_str()))
-				{
-					m_registryManager.SetSnapshotFlag();
-				}
+				m_registryManager.SetSnapshotFlag();
+				CUtils::SaveFrameToFile(pBuffer, nWidth, nHeight, format, snapshotFile, snapshotExt);
 			}
 		}
 	}

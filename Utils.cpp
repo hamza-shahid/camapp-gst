@@ -72,7 +72,7 @@ HBITMAP CUtils::LoadPNGToHBITMAP(UINT nResourceID, int targetWidth, int targetHe
     return hBmp;
 }
 
-BOOL CUtils::SaveBGRXToJPEG(const BYTE* pBgrxData, int nWidth, int nHeight, std::string filename)
+BOOL CUtils::SaveBGRXToFile(const BYTE* pBgrxData, int nWidth, int nHeight, std::string filename, CLSID clsidEncoder)
 {
     // Step 1: Initialize GDI+ Bitmap with the BGRX data
     Bitmap bitmap(nWidth, nHeight, PixelFormat32bppRGB); // PixelFormat32bppRGB works for BGRX format
@@ -102,15 +102,28 @@ BOOL CUtils::SaveBGRXToJPEG(const BYTE* pBgrxData, int nWidth, int nHeight, std:
     // Unlock the bitmap after data is copied
     bitmap.UnlockBits(&bitmapData);
 
-    // Step 3: Save as JPEG
+    if (bitmap.Save(StdStringToStdWString(filename).c_str(), &clsidEncoder, nullptr) != Ok)
+        return FALSE;
+
+    return TRUE;
+}
+
+BOOL CUtils::SaveBGRXToJPEG(const BYTE* pBgrxData, int nWidth, int nHeight, std::string filename)
+{
     CLSID clsid;
     if (GetEncoderClsid(L"image/jpeg", &clsid) == -1)
         return FALSE;
 
-    if (bitmap.Save(StdStringToStdWString(filename).c_str(), &clsid, nullptr) != Ok)
+    return SaveBGRXToFile(pBgrxData, nWidth, nHeight, filename, clsid);
+}
+
+BOOL CUtils::SaveBGRXToPNG(const BYTE* pBgrxData, int nWidth, int nHeight, std::string filename)
+{
+    CLSID clsid;
+    if (GetEncoderClsid(L"image/png", &clsid) == -1)
         return FALSE;
 
-    return TRUE;
+    return SaveBGRXToFile(pBgrxData, nWidth, nHeight, filename, clsid);
 }
 
 // Helper function to get CLSID of encoder (e.g., JPEG encoder)
@@ -179,12 +192,26 @@ BOOL CUtils::SaveYUY2ToJPEG(const BYTE* pYuy2Data, int nWidth, int nHeight, std:
     return SaveBGRXToJPEG(rgbData.data(), nWidth, nHeight, filename);
 }
 
-BOOL CUtils::SaveFrameToFile(const BYTE* pFrameBuffer, int nWidth, int nHeight, std::string format, std::string filename)
+BOOL CUtils::SaveYUY2ToPNG(const BYTE* pYuy2Data, int nWidth, int nHeight, std::string filename)
+{
+    std::vector<BYTE> rgbData(nWidth * nHeight * 4);
+
+    ConvertYUY2ToBGRX(pYuy2Data, rgbData.data(), nWidth, nHeight);
+
+    return SaveBGRXToPNG(rgbData.data(), nWidth, nHeight, filename);
+}
+
+BOOL CUtils::SaveFrameToFile(const BYTE* pFrameBuffer, int nWidth, int nHeight, std::string format, std::string filename, std::string ext)
 {
     BOOL ret = FALSE;
 
     if (format == "BGRx")
-        ret = CUtils::SaveBGRXToJPEG(pFrameBuffer, nWidth, nHeight, filename);
+    {
+        if (ext == "jpg" || ext == "jpeg")
+            ret = CUtils::SaveBGRXToJPEG(pFrameBuffer, nWidth, nHeight, filename);
+        else if (ext == "png")
+            ret = CUtils::SaveBGRXToPNG(pFrameBuffer, nWidth, nHeight, filename);
+    }
     else if (format == "YUY2")
         ret = CUtils::SaveYUY2ToJPEG(pFrameBuffer, nWidth, nHeight, filename);
     else
