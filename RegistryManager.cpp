@@ -234,6 +234,7 @@ void CRegistryManager::WritePrintPartitionsResultsToReg(const char* pJsonStr)
 		int id = cJSON_GetObjectItem(partition, "id")->valueint;
 		std::string totalStr = cJSON_GetObjectItem(partition, "total")->valuestring;
 		std::string averageStr = cJSON_GetObjectItem(partition, "average")->valuestring;
+		std::string averageColStr = cJSON_GetObjectItem(partition, "average_col")->valuestring;
 		std::string minStr = cJSON_GetObjectItem(partition, "min")->valuestring;
 		std::string maxStr = cJSON_GetObjectItem(partition, "max")->valuestring;
 		std::string nonUniformityStr = cJSON_GetObjectItem(partition, "non-uniformity")->valuestring;
@@ -249,6 +250,7 @@ void CRegistryManager::WritePrintPartitionsResultsToReg(const char* pJsonStr)
 		{
 			regKey.SetStringValue("total", totalStr.c_str());
 			regKey.SetStringValue("average", averageStr.c_str());
+			regKey.SetStringValue("average_col", averageColStr.c_str());
 			regKey.SetStringValue("min", minStr.c_str());
 			regKey.SetStringValue("max", maxStr.c_str());
 			regKey.SetStringValue("non-uniformity", nonUniformityStr.c_str());
