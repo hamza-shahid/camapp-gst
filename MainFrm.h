@@ -89,6 +89,8 @@ protected:  // control bar embedded members
 	BOOL		m_bBarcodeReaderAvailable;
 	BOOL		m_bShowFps;
 	BOOL		m_bAutoStart;
+	BOOL		m_bSnapshotAsBMP;
+	std::string m_strLastSnapshotFilename;
 	std::string	m_strSource;
 	std::string m_strSink;
 	CGstPlayer	m_gstPlayer;
@@ -118,6 +120,7 @@ protected:
 	afx_msg void OnCameraOptions();
 	afx_msg void OnShowFps();
 	afx_msg void OnAutoStart();
+	afx_msg void OnSnapshotAsBMP();
 	afx_msg void OnPrintAnalysisOptions();
 	afx_msg LRESULT OnPrintAnalysisFilterNotFound(WPARAM wParam, LPARAM lParam);
 	afx_msg LRESULT OnBarcodeReaderFilterNotFound(WPARAM wParam, LPARAM lParam);
@@ -142,6 +145,7 @@ protected:
 	afx_msg LRESULT OnBarcodeScanReg(WPARAM wParam, LPARAM lParam);
 	LRESULT OnStartStopPreviewReg(WPARAM wParam, LPARAM lParam);
 	afx_msg void OnClose();
+	afx_msg void OnCompareSnapshot();
 
 	DECLARE_MESSAGE_MAP()
 };

@@ -48,6 +48,8 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWndEx)
 	ON_COMMAND(ID_OPTIONS_CAMERASETTINGS, &CMainFrame::OnCameraSettings)
 	ON_COMMAND(ID_OPTIONS_SHOWFPS, &CMainFrame::OnShowFps)
 	ON_COMMAND(ID_OPTIONS_AUTOSTART, &CMainFrame::OnAutoStart)
+	ON_COMMAND(ID_OPTIONS_SNAPSHOT_AS_BMP, &CMainFrame::OnSnapshotAsBMP)
+	ON_COMMAND(ID_OPTIONS_COMPARE_SNAPSHOT, &CMainFrame::OnCompareSnapshot)
 	ON_COMMAND(ID_MENU_PRINT_ANALYSIS_OPTS, &CMainFrame::OnPrintAnalysisOptions)
 	ON_MESSAGE(WM_ON_PRINT_ANALYSIS_NOT_FOUND, &CMainFrame::OnPrintAnalysisFilterNotFound)
 	ON_MESSAGE(WM_ON_BARCODE_READER_NOT_FOUND, &CMainFrame::OnBarcodeReaderFilterNotFound)
@@ -87,6 +89,7 @@ CMainFrame::CMainFrame() noexcept
 	, m_bBarcodeReaderAvailable(TRUE)
 	, m_bRegBarcodeScanEnabled(FALSE)
 	, m_bAutoStart(FALSE)
+	, m_bSnapshotAsBMP(FALSE)
 {
 	m_bAutoMenuEnable = FALSE;
 	m_bPreviewEnabled = FALSE;
@@ -252,6 +255,7 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 
 	m_bAutoStart = appSettings.bAutoStart;
 	GetMenu()->GetSubMenu(ID_MENU_OPTIONS)->CheckMenuItem(ID_OPTIONS_AUTOSTART, m_bAutoStart ? MF_CHECKED : MF_UNCHECKED);
+	GetMenu()->GetSubMenu(ID_MENU_OPTIONS)->EnableMenuItem(ID_OPTIONS_COMPARE_SNAPSHOT, m_bSnapshotAsBMP ? MF_ENABLED : MF_DISABLED);
 
 	m_dlgBarcodeTypes.SetBarcodeFormats(appSettings.uBarcodeFormats);
 	m_dlgBarcodeTypes.SetBarcodeColStartX(appSettings.uBarcodeColStartX);
@@ -715,6 +719,25 @@ void CMainFrame::OnAutoStart()
 	pOptionsMenu->CheckMenuItem(ID_OPTIONS_AUTOSTART, m_bAutoStart ? MF_CHECKED : MF_UNCHECKED);
 }
 
+void CMainFrame::OnSnapshotAsBMP()
+{
+	m_bSnapshotAsBMP = !m_bSnapshotAsBMP;
+
+	CMenu* pOptionsMenu = GetMenu()->GetSubMenu(ID_MENU_OPTIONS);
+	pOptionsMenu->CheckMenuItem(ID_OPTIONS_SNAPSHOT_AS_BMP, m_bSnapshotAsBMP ? MF_CHECKED : MF_UNCHECKED);
+	pOptionsMenu->EnableMenuItem(ID_OPTIONS_COMPARE_SNAPSHOT, m_bSnapshotAsBMP ? MF_ENABLED : MF_DISABLED);
+}
+
+void CMainFrame::OnCompareSnapshot()
+{
+	if (!m_strLastSnapshotFilename.size())
+		MessageBox("Last snapshot not available.", "Error", MB_ICONERROR);
+	else
+	{
+		CUtils::CompareImages(m_strLastSnapshotFilename + ".png", m_strLastSnapshotFilename + ".bmp");
+	}
+}
+
 void CMainFrame::OnPrintAnalysisOptions()
 {
 	m_printAnalysisOptsDlg.DoModal();
@@ -748,7 +771,7 @@ void CMainFrame::OnSnapshot()
 
 	if (dlg.DoModal() == IDOK)
 	{
-		CString filePath = dlg.GetPathName();
+		CString filePath = CUtils::GetFilePathWithoutExt(dlg.GetPathName());
 		CString ext = dlg.GetFileExt().MakeLower();
 		BYTE* pBuffer = NULL;
 		int nSize, nWidth, nHeight;
@@ -757,6 +780,11 @@ void CMainFrame::OnSnapshot()
 		if (m_gstPlayer.GetSnapshot(&pBuffer, nSize, nWidth, nHeight, format))
 		{
 			CUtils::SaveFrameToFile(pBuffer, nWidth, nHeight, format, filePath.GetBuffer(), ext.GetBuffer());
+
+			if (m_bSnapshotAsBMP)
+				CUtils::SaveFrameToFile(pBuffer, nWidth, nHeight, format, filePath.GetBuffer(), "bmp");
+
+			m_strLastSnapshotFilename = filePath.GetBuffer();
 		}
 		else
 		{
@@ -943,10 +971,15 @@ LRESULT CMainFrame::OnRegistrySnapshot(WPARAM wParam, LPARAM lParam)
 				std::string snapshotPrefix = "snap_";
 				std::string snapshotExt = "png";
 				int iSnapshotNo = CUtils::GetNextFileNumberInSeq(snapshotDir.c_str(), snapshotPrefix.c_str(), snapshotExt.c_str());
-				std::string snapshotFile = snapshotDir + "\\" + snapshotPrefix + std::to_string(iSnapshotNo) + "." + snapshotExt;
+				std::string snapshotFile = snapshotDir + "\\" + snapshotPrefix + std::to_string(iSnapshotNo);
 
 				m_registryManager.SetSnapshotFlag();
 				CUtils::SaveFrameToFile(pBuffer, nWidth, nHeight, format, snapshotFile, snapshotExt);
+
+				if (m_bSnapshotAsBMP)
+					CUtils::SaveFrameToFile(pBuffer, nWidth, nHeight, format, snapshotFile, "bmp");
+
+				m_strLastSnapshotFilename = snapshotFile;
 			}
 		}
 	}

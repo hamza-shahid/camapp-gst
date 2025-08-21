@@ -108,6 +108,39 @@ BOOL CUtils::SaveBGRXToFile(const BYTE* pBgrxData, int nWidth, int nHeight, std:
     return TRUE;
 }
 
+BOOL CUtils::SaveBGRXToBMP(const BYTE* pBgrxData, int nWidth, int nHeight, std::string filename)
+{
+    // BMP rows must be aligned to 4 bytes. Since BGRx is already 4 bytes per pixel, no padding needed.
+    int nBytesPerPixel = 4;
+    int nImageSize = nWidth * nHeight * nBytesPerPixel;
+
+    // File header
+    BITMAPFILEHEADER bmfHeader{};
+    bmfHeader.bfType = 0x4D42; // "BM"
+    bmfHeader.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+    bmfHeader.bfSize = bmfHeader.bfOffBits + nImageSize;
+
+    // Info header
+    BITMAPINFOHEADER bi{};
+    bi.biSize = sizeof(BITMAPINFOHEADER);
+    bi.biWidth = nWidth;
+    bi.biHeight = -nHeight; // negative = top-down bitmap (so image isn't upside down)
+    bi.biPlanes = 1;
+    bi.biBitCount = 32;    // BGRx is 32 bits per pixel
+    bi.biCompression = BI_RGB; // no compression
+    bi.biSizeImage = nImageSize;
+
+    std::ofstream file(filename, std::ios::out | std::ios::binary);
+    if (!file)
+        return false;
+
+    file.write(reinterpret_cast<const char*>(&bmfHeader), sizeof(bmfHeader));
+    file.write(reinterpret_cast<const char*>(&bi), sizeof(bi));
+    file.write(reinterpret_cast<const char*>(pBgrxData), nImageSize);
+
+    return true;
+}
+
 BOOL CUtils::SaveBGRXToJPEG(const BYTE* pBgrxData, int nWidth, int nHeight, std::string filename)
 {
     CLSID clsid;
@@ -201,6 +234,109 @@ BOOL CUtils::SaveYUY2ToPNG(const BYTE* pYuy2Data, int nWidth, int nHeight, std::
     return SaveBGRXToPNG(rgbData.data(), nWidth, nHeight, filename);
 }
 
+BYTE* CUtils::LoadImageAsBGRx(const std::string filename, int& nWidth, int& nHeight)
+{
+    Gdiplus::Bitmap bmp(StdStringToStdWString(filename).c_str());
+    if (bmp.GetLastStatus() != Gdiplus::Ok) return nullptr;
+
+    nWidth = bmp.GetWidth();
+    nHeight = bmp.GetHeight();
+
+    Gdiplus::Rect rect(0, 0, nWidth, nHeight);
+    BitmapData bmpData{};
+
+    if (bmp.LockBits(&rect, ImageLockModeRead, PixelFormat32bppRGB, &bmpData) != Gdiplus::Ok)
+        return nullptr;
+
+    UINT uBytesPerPixel = GetPixelFormatSize(bmpData.PixelFormat) / 8;
+    int nStride = nWidth * uBytesPerPixel;
+    BYTE* pBgrxData = new BYTE[nStride * nHeight];
+
+    if (nStride == nWidth * uBytesPerPixel)
+    {
+        memcpy(pBgrxData, bmpData.Scan0, nWidth * nHeight * uBytesPerPixel);
+    }
+    else
+    {
+        for (int y = 0; y < nHeight; y++)
+        {
+            memcpy(pBgrxData + y * nStride, (BYTE*)bmpData.Scan0 + y * bmpData.Stride, nStride);
+        }
+    }
+
+    bmp.UnlockBits(&bmpData);
+    return pBgrxData;
+}
+
+BOOL CUtils::SubtractBgrxImages(const BYTE* pImg1, const BYTE* pImg2, BYTE* pResult, int nWidth, int nHeight)
+{
+    int nDiff = 0;
+    int stride = nWidth * 4;
+
+    for (int y = 0; y < nHeight; y++)
+    {
+        for (int x = 0; x < nWidth; x++)
+        {
+            int idx = y * stride + x * 4;
+
+            pResult[idx + 0] = (BYTE)std::abs(pImg1[idx + 0] - pImg2[idx + 0]); // B
+            pResult[idx + 1] = (BYTE)std::abs(pImg1[idx + 1] - pImg2[idx + 1]); // G
+            pResult[idx + 2] = (BYTE)std::abs(pImg1[idx + 2] - pImg2[idx + 2]); // R
+            pResult[idx + 3] = 0xFF;
+
+            if (pResult[idx + 0] || pResult[idx + 1] || pResult[idx + 2])
+                nDiff++;
+        }
+    }
+
+
+    return nDiff == 0 ? TRUE : FALSE;
+}
+
+BOOL CUtils::CompareImages(std::string strImg1Filename, std::string strImg2Filename)
+{
+    int w1, h1, w2, h2;
+
+    BYTE* pImg1 = LoadImageAsBGRx(strImg1Filename, w1, h1);
+    BYTE* pImg2 = LoadImageAsBGRx(strImg2Filename, w2, h2);
+    BOOL bSame = FALSE;
+
+    if (!pImg1 || !pImg2 || w1 != w2 || h1 != h2)
+    {
+        MessageBox(NULL, "Image load failed or sizes don't match", "Error", MB_ICONERROR);
+    }
+    else
+    {
+        BYTE* pResult = new BYTE[w1 * h1 * 4];
+        std::string strDiffFilename = GetFilePathWithoutExt(strImg1Filename.c_str()).GetBuffer() + std::string("_diff");
+
+        bSame = SubtractBgrxImages(pImg1, pImg2, pResult, w1, h1);
+        if (bSame)
+        {
+            MessageBox(NULL, "Files are a match", "Match", MB_ICONINFORMATION);
+        }
+        else
+        {
+            std::string strErrMsg = "Files are not a match. Saving diff in file: " + strDiffFilename + ".bmp";
+            MessageBox(NULL, strErrMsg.c_str(), "Warning", MB_ICONWARNING);
+
+            BOOL bDiffSaved = SaveFrameToFile(pResult, w1, h1, "BGRx", strDiffFilename, "bmp");
+            if (!bDiffSaved)
+            {
+                std::string strErrMsg = "Unable to save diff file: " + strDiffFilename;
+                MessageBox(NULL, strErrMsg.c_str(), "Error", MB_ICONERROR);
+            }
+        }
+
+        if (pResult) delete[] pResult;
+    }
+
+    if (pImg1) delete[] pImg1;
+    if (pImg2) delete[] pImg2;
+
+    return TRUE;
+}
+
 BOOL CUtils::SaveFrameToFile(const BYTE* pFrameBuffer, int nWidth, int nHeight, std::string format, std::string filename, std::string ext)
 {
     BOOL ret = FALSE;
@@ -208,12 +344,14 @@ BOOL CUtils::SaveFrameToFile(const BYTE* pFrameBuffer, int nWidth, int nHeight, 
     if (format == "BGRx")
     {
         if (ext == "jpg" || ext == "jpeg")
-            ret = CUtils::SaveBGRXToJPEG(pFrameBuffer, nWidth, nHeight, filename);
+            ret = CUtils::SaveBGRXToJPEG(pFrameBuffer, nWidth, nHeight, filename + "." + ext);
         else if (ext == "png")
-            ret = CUtils::SaveBGRXToPNG(pFrameBuffer, nWidth, nHeight, filename);
+            ret = CUtils::SaveBGRXToPNG(pFrameBuffer, nWidth, nHeight, filename + "." + ext);
+        else if (ext == "bmp")
+            ret = SaveBGRXToBMP(pFrameBuffer, nWidth, nHeight, filename + "." + ext);
     }
     else if (format == "YUY2")
-        ret = CUtils::SaveYUY2ToJPEG(pFrameBuffer, nWidth, nHeight, filename);
+        ret = CUtils::SaveYUY2ToJPEG(pFrameBuffer, nWidth, nHeight, filename + "." + ext);
     else
         AfxMessageBox("Unsupported video format");
 
@@ -223,9 +361,9 @@ BOOL CUtils::SaveFrameToFile(const BYTE* pFrameBuffer, int nWidth, int nHeight, 
     return ret;
 }
 
-std::wstring CUtils::StdStringToStdWString(std::string& str)
+std::wstring CUtils::StdStringToStdWString(std::string str)
 {
-    int len = str.size() + 1;
+    size_t len = str.size() + 1;
     wchar_t* wcharStr = new wchar_t[len];
 
     MultiByteToWideChar(CP_ACP, 0, str.c_str(), -1, wcharStr, len);
@@ -279,6 +417,14 @@ void CUtils::LogToFile(const std::string& message)
     {
         file << "[" << GetFormattedTime() << "] " << message << std::endl;
     }
+}
+
+CString CUtils::GetFilePathWithoutExt(const CString strFilePath)
+{
+    int dotPos = strFilePath.ReverseFind('.');
+    if (dotPos > 0)
+        return strFilePath.Left(dotPos);
+    return strFilePath;
 }
 
 int CUtils::GetNextFileNumberInSeq(const char* pFileDir, const char* pFileNamePrefix, const char* pExt)
