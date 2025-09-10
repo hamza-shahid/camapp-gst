@@ -966,20 +966,32 @@ LRESULT CMainFrame::OnRegistrySnapshot(WPARAM wParam, LPARAM lParam)
 
 		if (m_registryManager.GetSnapshotDir(snapshotDir) == ERROR_SUCCESS)
 		{
-			if (m_gstPlayer.GetSnapshot(&pBuffer, nSize, nWidth, nHeight, format))
+			// Create directory if it does not exist
+			HRESULT hr = SHCreateDirectoryEx(NULL, snapshotDir.c_str(), NULL);
+			if (!(hr == ERROR_SUCCESS || hr == ERROR_ALREADY_EXISTS))
 			{
-				std::string snapshotPrefix = "snap_";
-				std::string snapshotExt = "png";
-				int iSnapshotNo = CUtils::GetNextFileNumberInSeq(snapshotDir.c_str(), snapshotPrefix.c_str(), snapshotExt.c_str());
-				std::string snapshotFile = snapshotDir + "\\" + snapshotPrefix + std::to_string(iSnapshotNo);
-
 				m_registryManager.SetSnapshotFlag();
-				CUtils::SaveFrameToFile(pBuffer, nWidth, nHeight, format, snapshotFile, snapshotExt);
+				std::string errMsg = "Unable to create snapshot directory: " + snapshotDir;
+				errMsg += "\nError: " + CUtils::GetErrorAsString(hr);
+				MessageBox(errMsg.c_str());
+			}
+			else
+			{
+				if (m_gstPlayer.GetSnapshot(&pBuffer, nSize, nWidth, nHeight, format))
+				{
+					std::string snapshotPrefix = "snap_";
+					std::string snapshotExt = "png";
+					int iSnapshotNo = CUtils::GetNextFileNumberInSeq(snapshotDir.c_str(), snapshotPrefix.c_str(), snapshotExt.c_str());
+					std::string snapshotFile = snapshotDir + "\\" + snapshotPrefix + std::to_string(iSnapshotNo);
 
-				if (m_bSnapshotAsBMP)
-					CUtils::SaveFrameToFile(pBuffer, nWidth, nHeight, format, snapshotFile, "bmp");
+					m_registryManager.SetSnapshotFlag();
+					CUtils::SaveFrameToFile(pBuffer, nWidth, nHeight, format, snapshotFile, snapshotExt);
 
-				m_strLastSnapshotFilename = snapshotFile;
+					if (m_bSnapshotAsBMP)
+						CUtils::SaveFrameToFile(pBuffer, nWidth, nHeight, format, snapshotFile, "bmp");
+
+					m_strLastSnapshotFilename = snapshotFile;
+				}
 			}
 		}
 	}

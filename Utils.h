@@ -38,6 +38,8 @@ public:
 
 	static void LogToFile(const std::string& message);
 
+	static std::string GetErrorAsString(HRESULT error);
+
 private:
 	static ULONG_PTR m_pGiplusToken;
 };

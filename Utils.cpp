@@ -455,3 +455,30 @@ int CUtils::GetNextFileNumberInSeq(const char* pFileDir, const char* pFileNamePr
 
     return iSeqNo + 1;
 }
+
+std::string CUtils::GetErrorAsString(HRESULT error)
+{
+    LPSTR buffer = nullptr;
+
+    DWORD size = FormatMessage(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL,
+        error,
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        (LPSTR)&buffer,
+        0,
+        NULL);
+
+    std::string message;
+    if (size > 0 && buffer != nullptr)
+    {
+        message = buffer;
+        LocalFree(buffer);
+    }
+    else
+    {
+        message = "Unknown error code: " + std::to_string(error);
+    }
+
+    return message;
+}

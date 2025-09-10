@@ -15,7 +15,6 @@
 #define REG_AOI_KEY_NAME		"ready"
 #define REG_SNAPSHOT_KEY_NAME	"snapshot"
 #define REG_SNAPSHOT_DIR_NAME	"snapshot-dir"
-#define REG_BARCODE_KEY_NAME	"barcode"
 #define REG_START_STOP_PREVIEW	"start-stop"
 #define REG_CAMERA_NAME_VALUE	"CameraName"
 #define REG_SOURCE_VALUE		"Source"
