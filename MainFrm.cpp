@@ -962,7 +962,6 @@ LRESULT CMainFrame::OnRegistrySnapshot(WPARAM wParam, LPARAM lParam)
 		BYTE* pBuffer = NULL;
 		int nSize, nWidth, nHeight;
 		std::string format, snapshotDir;
-		//const char* pSnapshotDir = (const char*)lParam;
 
 		if (m_registryManager.GetSnapshotDir(snapshotDir) == ERROR_SUCCESS)
 		{
@@ -984,12 +983,12 @@ LRESULT CMainFrame::OnRegistrySnapshot(WPARAM wParam, LPARAM lParam)
 					int iSnapshotNo = CUtils::GetNextFileNumberInSeq(snapshotDir.c_str(), snapshotPrefix.c_str(), snapshotExt.c_str());
 					std::string snapshotFile = snapshotDir + "\\" + snapshotPrefix + std::to_string(iSnapshotNo);
 
-					m_registryManager.SetSnapshotFlag();
 					CUtils::SaveFrameToFile(pBuffer, nWidth, nHeight, format, snapshotFile, snapshotExt);
 
 					if (m_bSnapshotAsBMP)
 						CUtils::SaveFrameToFile(pBuffer, nWidth, nHeight, format, snapshotFile, "bmp");
 
+					m_registryManager.SetSnapshotFlag();
 					m_strLastSnapshotFilename = snapshotFile;
 				}
 			}
