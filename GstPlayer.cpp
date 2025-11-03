@@ -7,6 +7,7 @@
 #include <functional>
 #include <sstream>
 #include <algorithm>
+#include <cstdlib>
 
 
 WNDPROC CGstPlayer::m_origOpenGlWndProc = NULL;
@@ -42,6 +43,11 @@ CGstPlayer::CGstPlayer()
 	, m_uBarcodeColumnStartX(0)
 	, m_uBarcodeColumnWidth(0)
 	, m_gstState(GST_STATE_NULL)
+	, m_pCrop(NULL)
+	, m_pScale(NULL)
+	, m_fZoom(100)
+	, m_nPan(0)
+	, m_nTilt(0)
 {
 	int argc = 0;
 	char** argv = NULL;
@@ -257,6 +263,8 @@ BOOL CGstPlayer::StartPreview(std::string strSource, int iDeviceIndex, std::stri
 	m_hVideoWindow = hVideoWindow;
 	m_strSink = strSink;
 	m_pPipeline = gst_pipeline_new("video-display");
+	m_nWidth = iWidth;
+	m_nHeight = iHeight;
 
 	ADD_ELEMENT_WITH_ERR_CHECK(strSource, "source", "device-name", gst_device_get_display_name(m_CameraList[iDeviceIndex]), pPrevElement, &pPrevElement, strError);
 
@@ -294,6 +302,9 @@ BOOL CGstPlayer::StartPreview(std::string strSource, int iDeviceIndex, std::stri
 		gst_caps_unref(pVideoConvertCaps);
 	}
 	
+	ADD_ELEMENT_WITH_ERR_CHECK("videocrop", "videocrop", "", NULL, pPrevElement, &pPrevElement, strError);
+	m_pCrop = pPrevElement;
+
 	// barcode reader
 	if (m_bBarcodeReader)
 	{
@@ -318,6 +329,9 @@ BOOL CGstPlayer::StartPreview(std::string strSource, int iDeviceIndex, std::stri
 
 		g_signal_connect(G_OBJECT(m_pPrintAnalysis), "aoi-total-signal", G_CALLBACK(OnAoiStatsReceived), this);
 	}
+
+	ADD_ELEMENT_WITH_ERR_CHECK("videoscale", "videoscale", "", NULL, pPrevElement, &pPrevElement, strError);
+	m_pScale = pPrevElement;
 
 	if (bShowFps)
 	{
@@ -384,6 +398,11 @@ void CGstPlayer::StopPreview()
 		gst_object_unref(m_pPipeline);
 		m_pPipeline = NULL;
 		m_pPrintAnalysis = NULL;
+		m_pCrop = NULL;
+		m_pScale = NULL;
+		m_fZoom = 100;
+		m_nPan = 0;
+		m_nTilt = 0;
 		m_gstState = GST_STATE_NULL;
 	}
 }
@@ -916,4 +935,61 @@ void CGstPlayer::SetPipelineDoneFlag(BOOL bIsDone)
 {
 	std::lock_guard<std::mutex> lock(m_mtxPipelineDone);
 	m_bPipelineDone = bIsDone;
+}
+
+void CGstPlayer::CalculatePTZ()
+{
+	m_fZoom = std::clamp(m_fZoom, 100.00, 200.00);
+
+	double fScale = 100.0 / m_fZoom; /* zoom=200 => scale=0.5 crop smaller region */
+	int nCropWidth = (int)(m_nWidth * fScale + 0.5);
+	int nCropHeight = (int)(m_nHeight * fScale + 0.5);
+
+	int cx = (m_nWidth - nCropWidth) / 2;
+	int cy = (m_nHeight - nCropHeight) / 2;
+
+	m_nPan  = std::clamp(m_nPan, -cx, cx);
+	m_nTilt = std::clamp(m_nTilt, -cy, cy);
+
+	// Crop margins (in pixels) from each side of the frame
+	m_nCropLeft = cx + m_nPan;
+	m_nCropRight = cx - m_nPan;
+
+	m_nCropTop = cy + m_nTilt;
+	m_nCropBottom = cy - m_nTilt;
+}
+
+void CGstPlayer::Zoom(double fZoom)
+{
+	m_fZoom += fZoom;
+
+	CalculatePTZ();
+
+	if (m_pCrop)
+	{
+		g_object_set(m_pCrop,
+			"left", m_nCropLeft,
+			"right", m_nCropRight,
+			"top", m_nCropTop,
+			"bottom", m_nCropBottom,
+			NULL);
+	}
+}
+
+void CGstPlayer::PanTilt(int nPan, int nTilt)
+{
+	m_nPan += nPan;
+	m_nTilt += nTilt;
+
+	CalculatePTZ();
+
+	if (m_pCrop)
+	{
+		g_object_set(m_pCrop,
+			"left", m_nCropLeft,
+			"right", m_nCropRight,
+			"top", m_nCropTop,
+			"bottom", m_nCropBottom,
+			NULL);
+	}
 }

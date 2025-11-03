@@ -69,6 +69,21 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWndEx)
 	ON_MESSAGE(WM_TAKE_SNAPSHOT, &CMainFrame::OnRegistrySnapshot)
 	ON_MESSAGE(WM_START_STOP_PREVIEW_REG, &CMainFrame::OnStartStopPreviewReg)
 	ON_WM_CLOSE()
+	ON_COMMAND(ID_OPTIONS_ZOOMIN, &CMainFrame::OnZoomIn)
+	ON_UPDATE_COMMAND_UI(ID_OPTIONS_ZOOMIN, &CMainFrame::OnUpdateZPTR)
+	ON_COMMAND(ID_OPTIONS_ZOOMOUT, &CMainFrame::OnZoomOut)
+	ON_UPDATE_COMMAND_UI(ID_OPTIONS_ZOOMOUT, &CMainFrame::OnUpdateZPTR)
+	ON_COMMAND(ID_OPTIONS_PAN_LEFT, &CMainFrame::OnPanLeft)
+	ON_UPDATE_COMMAND_UI(ID_OPTIONS_PAN_LEFT, &CMainFrame::OnUpdateZPTR)
+	ON_COMMAND(ID_OPTIONS_PAN_RIGHT, &CMainFrame::OnPanRight)
+	ON_UPDATE_COMMAND_UI(ID_OPTIONS_PAN_RIGHT, &CMainFrame::OnUpdateZPTR)
+	ON_COMMAND(ID_OPTIONS_TILT_UP, &CMainFrame::OnTiltUp)
+	ON_UPDATE_COMMAND_UI(ID_OPTIONS_TILT_UP, &CMainFrame::OnUpdateZPTR)
+	ON_BN_CLICKED(ID_OPTIONS_TILT_DOWN, &CMainFrame::OnTiltDown)
+	ON_UPDATE_COMMAND_UI(ID_OPTIONS_TILT_DOWN, &CMainFrame::OnUpdateZPTR)
+	ON_MESSAGE(WM_USER_TOOLBAR_BUTTONDOWN, &CMainFrame::OnToolbarButtonDown)
+	ON_MESSAGE(WM_USER_TOOLBAR_BUTTONUP, &CMainFrame::OnToolbarButtonUp)
+	ON_WM_TIMER()
 END_MESSAGE_MAP()
 
 static UINT indicators[] =
@@ -210,6 +225,12 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	AddToolbarButton(ID_BARCODE_SHOW_LOCATION, IDB_PNG_LOCATION, IDB_PNG_LOCATION_OFF, "Barcode Location");
 	AddToolbarButton(ID_BARCODE_TYPES, IDB_PNG_BARCODE_FORMATS, -1, "Barcode Formats");
 	AddToolbarButton(ID_OCR_RUN_OCR, IDB_PNG_OCR, -1, "Run OCR");
+	AddToolbarButton(ID_OPTIONS_ZOOMIN, IDB_PNG_ZOOM_IN, -1, "Zoom In");
+	AddToolbarButton(ID_OPTIONS_ZOOMOUT, IDB_PNG_ZOOM_OUT, -1, "Zoom Out");
+	AddToolbarButton(ID_OPTIONS_PAN_LEFT, IDB_PNG_PAN_LEFT, -1, "Pan Left");
+	AddToolbarButton(ID_OPTIONS_PAN_RIGHT, IDB_PNG_PAN_RIGHT, -1, "Pan Right");
+	AddToolbarButton(ID_OPTIONS_TILT_UP, IDB_PNG_TILT_UP, -1, "Tilt Up");
+	AddToolbarButton(ID_OPTIONS_TILT_DOWN, IDB_PNG_TILT_DOWN, -1, "Tilt Down");
 
 	m_wndToolBar.EnableDocking(CBRS_ALIGN_ANY);
 	EnableDocking(CBRS_ALIGN_ANY);
@@ -1006,6 +1027,101 @@ LRESULT CMainFrame::OnStartStopPreviewReg(WPARAM wParam, LPARAM lParam)
 	{
 		OnPreview();
 	}
+
+	return 0;
+}
+
+void CMainFrame::OnZoomIn()
+{
+	m_gstPlayer.Zoom(5);
+}
+
+void CMainFrame::OnZoomOut()
+{
+	m_gstPlayer.Zoom(-5);
+}
+
+void CMainFrame::OnPanLeft()
+{
+	m_gstPlayer.PanTilt(-10);
+}
+
+void CMainFrame::OnPanRight()
+{
+	m_gstPlayer.PanTilt(10);
+}
+
+void CMainFrame::OnTiltUp()
+{
+	m_gstPlayer.PanTilt(0, -10);
+}
+
+void CMainFrame::OnTiltDown()
+{
+	m_gstPlayer.PanTilt(0, 10);
+}
+
+void CMainFrame::OnUpdateZPTR(CCmdUI* pCmdUI)
+{
+	pCmdUI->Enable(m_bPreviewEnabled);
+}
+
+LRESULT CMainFrame::OnToolbarButtonDown(WPARAM wParam, LPARAM lParam)
+{
+	int nButtonID = wParam;
+
+	switch (nButtonID)
+	{
+	case ID_OPTIONS_PAN_LEFT:
+	case ID_OPTIONS_PAN_RIGHT:
+	case ID_OPTIONS_TILT_UP:
+	case ID_OPTIONS_TILT_DOWN:
+	case ID_OPTIONS_ZOOMIN:
+	case ID_OPTIONS_ZOOMOUT:
+		//SetCapture();
+
+		// Call the button handler immediately once
+		//OnCommand(nButtonID, 0);
+
+		// Use button ID directly as timer ID
+		SetTimer(nButtonID, 100, nullptr);
+		break;
+
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+void CMainFrame::OnTimer(UINT_PTR nIDEvent)
+{
+	switch (nIDEvent)
+	{
+	case ID_OPTIONS_PAN_LEFT:
+	case ID_OPTIONS_PAN_RIGHT:
+	case ID_OPTIONS_TILT_UP:
+	case ID_OPTIONS_TILT_DOWN:
+	case ID_OPTIONS_ZOOMIN:
+	case ID_OPTIONS_ZOOMOUT:
+		OnCommand((UINT)nIDEvent, 0);
+		break;
+
+	default:
+		CFrameWndEx::OnTimer(nIDEvent);
+		break;
+	}
+}
+
+LRESULT CMainFrame::OnToolbarButtonUp(WPARAM wParam, LPARAM lParam)
+{
+	// Stop all possible timers (you can optimize this if needed)
+	KillTimer(ID_OPTIONS_PAN_LEFT);
+	KillTimer(ID_OPTIONS_PAN_RIGHT);
+	KillTimer(ID_OPTIONS_TILT_UP);
+	KillTimer(ID_OPTIONS_TILT_DOWN);
+	KillTimer(ID_OPTIONS_ZOOMIN);
+	KillTimer(ID_OPTIONS_ZOOMOUT);
 
 	return 0;
 }

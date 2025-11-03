@@ -12,6 +12,7 @@
 #include "CameraControlsPage.h"
 #include "BarcodeTypesDlg.h"
 #include "OutputWnd.h"
+#include "CamAppToolbar.h"
 
 #include <vector>
 #include <thread>
@@ -70,7 +71,8 @@ public:
 
 protected:  // control bar embedded members
 	CMFCStatusBar			m_wndStatusBar;
-	CMFCToolBar				m_wndToolBar;
+	//CMFCToolBar				m_wndToolBar;
+	CCamAppToolbar			m_wndToolBar;
 	COutputPane				m_wndOutputPane;
 	int						m_nToolbarBtnImageWidth;
 	int						m_nToolbarBtnImageHeight;
@@ -146,6 +148,16 @@ protected:
 	LRESULT OnStartStopPreviewReg(WPARAM wParam, LPARAM lParam);
 	afx_msg void OnClose();
 	afx_msg void OnCompareSnapshot();
+	afx_msg void OnZoomIn();
+	afx_msg void OnZoomOut();
+	afx_msg void OnPanLeft();
+	afx_msg void OnPanRight();
+	afx_msg void OnTiltUp();
+	afx_msg void OnTiltDown();
+	afx_msg void OnUpdateZPTR(CCmdUI* pCmdUI);
+	afx_msg LRESULT  OnToolbarButtonDown(WPARAM wParam, LPARAM lParam);
+	afx_msg LRESULT  OnToolbarButtonUp(WPARAM wParam, LPARAM lParam);
+	afx_msg void OnTimer(UINT_PTR nIDEvent);
 
 	DECLARE_MESSAGE_MAP()
 };

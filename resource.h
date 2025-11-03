@@ -41,6 +41,13 @@
 #define IDR_BARCODE_OUTPUT_POPUP        346
 #define IDB_PNG_OCR                     347
 #define IDD_DIALOG_REG_SETTINGS         348
+#define IDB_PNG_ZOOM_IN                 349
+#define IDB_PNG1                        350
+#define IDB_PNG_ZOOM_OUT                350
+#define IDB_PNG_PAN_LEFT                352
+#define IDB_PNG_PAN_RIGHT               353
+#define IDB_PNG_TILT_UP                 354
+#define IDB_PNG_TILT_DOWN               355
 #define IDC_FORMAT                      1001
 #define IDC_STATIC_FORMAT               1002
 #define IDC_COMBO_FRAME_SIZE            1003
@@ -218,6 +225,12 @@
 #define ID_OPTIONS_AUTOSTART            32801
 #define ID_OPTIONS_SNAPSHOT_AS_BMP      32802
 #define ID_OPTIONS_COMPARE_SNAPSHOT     32803
+#define ID_OPTIONS_ZOOMIN               32804
+#define ID_OPTIONS_ZOOMOUT              32805
+#define ID_OPTIONS_PAN_LEFT             32806
+#define ID_OPTIONS_PAN_RIGHT            32807
+#define ID_OPTIONS_TILT_UP              32808
+#define ID_OPTIONS_TILT_DOWN            32809
 #define ID_DEVICE_START                 33000
 #define ID_VIEW_BARCODEWND              33001
 
@@ -225,8 +238,8 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        350
-#define _APS_NEXT_COMMAND_VALUE         32804
+#define _APS_NEXT_RESOURCE_VALUE        356
+#define _APS_NEXT_COMMAND_VALUE         32810
 #define _APS_NEXT_CONTROL_VALUE         1145
 #define _APS_NEXT_SYMED_VALUE           310
 #endif

@@ -73,7 +73,7 @@ void CameraSliderProperties::SetupCameraSliderProperty(long lProperty)
 	}
 	else
 	{
-		pCamSiderProp->slider.SetRange(pCamSiderProp->property.lMin, pCamSiderProp->property.lMax);
+		pCamSiderProp->slider.SetRange(pCamSiderProp->property.lMin, pCamSiderProp->property.lMax, TRUE);
 		pCamSiderProp->slider.SetPos(pCamSiderProp->property.lPropertyValue);
 		pCamSiderProp->slider.SetLineSize(pCamSiderProp->property.lSteppingDelta);
 		pCamSiderProp->slider.SetPageSize(pCamSiderProp->property.lSteppingDelta);

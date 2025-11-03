@@ -84,6 +84,9 @@ public:
 	BOOL GetPipelineDoneFlag();
 	void SetPipelineDoneFlag(BOOL bIsDone);
 
+	void PanTilt(int nPan = 0, int nTilt = 0);
+	void Zoom(double fZoom);
+
 private:
 	GstElement* AddElement(
 		std::string strFactoryName,
@@ -105,6 +108,8 @@ private:
 	void SendBarcode(BarcodeList* pBarcodeList);
 	void SendAoiStats(const char* pAoiStatsStr);
 
+	void CalculatePTZ();
+
 	static void OnBarcodesReceived(GstElement* pBarcodeReader, GArray* pArray, gpointer pUserData);
 	static void OnAoiStatsReceived(GstElement* pBarcodeReader, const gchar* pAoiTotal, gpointer pUserData);
 	static GstPadProbeReturn BufferProbeCallback(GstPad* pPad, GstPadProbeInfo* pInfo, gpointer pUserData);
@@ -112,13 +117,17 @@ private:
 	static LRESULT CALLBACK NewOpenGlWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 private:
-	HWND m_hParent;
-	GList* m_pDevices;
+	HWND		m_hParent;
+	GList*		m_pDevices;
 	GstElement* m_pPipeline;
+	int			m_nWidth;
+	int			m_nHeight;
 	GstElement* m_pSource;
 	GstElement* m_pSink;
 	GstElement* m_pPrintAnalysis;
 	GstElement* m_pBarcodeReader;
+	GstElement* m_pCrop;
+	GstElement* m_pScale;
 	GstState	m_gstState;
 	std::string m_strSink;
 	HWND		m_hVideoWindow;
@@ -155,6 +164,14 @@ private:
 	int						m_nSnapshotSize;
 	int						m_nSnapshotWidth;
 	int						m_nSnapshotHeight;
+
+	double	m_fZoom;		// percentage
+	int		m_nCropLeft;	// pixels
+	int		m_nCropRight;	// pixels
+	int		m_nCropTop;		// pixels
+	int		m_nCropBottom;	// pixels
+	int		m_nPan;			// pixels
+	int		m_nTilt;		// pixels
 };
 
 extern GstResource g_gstSources;
