@@ -20,6 +20,7 @@
 #define REG_SOURCE_VALUE		"Source"
 #define REG_SINK_VALUE			"Sink"
 #define REG_AUTO_START			"AutoStart"
+#define REG_SHOW_FPS			"ShowFps"
 #define REG_START_MINIMIZED		"StartMinimized"
 #define REG_MEDIA_TYPE			"MediaType"
 #define REG_FORMAT				"Format"
@@ -495,6 +496,7 @@ BOOL CRegistryManager::GetAppSettings(RegAppSettings& appSettings)
 
 	/* General Settings */
 	lStatus = RegQueryDWORDValue(regKey, REG_AUTO_START, (DWORD&)appSettings.bAutoStart, FALSE);
+	lStatus = RegQueryDWORDValue(regKey, REG_SHOW_FPS, (DWORD&)appSettings.bShowFps, FALSE);
 	lStatus = RegQueryStringValue(regKey, REG_CAMERA_NAME_VALUE, appSettings.strCameraName);
 	lStatus = RegQueryStringValue(regKey, REG_SOURCE_VALUE, appSettings.strSource);
 	lStatus = RegQueryStringValue(regKey, REG_SINK_VALUE, appSettings.strSink);
@@ -527,6 +529,7 @@ BOOL CRegistryManager::SaveAppSettings(RegAppSettings appSettings)
 		return FALSE;
 
 	lStatus = regKey.SetDWORDValue(REG_AUTO_START, appSettings.bAutoStart);
+	lStatus = regKey.SetDWORDValue(REG_SHOW_FPS, appSettings.bShowFps);
 	lStatus = regKey.SetStringValue(REG_CAMERA_NAME_VALUE, appSettings.strCameraName.c_str());
 	lStatus = regKey.SetStringValue(REG_SOURCE_VALUE, appSettings.strSource.c_str());
 	lStatus = regKey.SetStringValue(REG_SINK_VALUE, appSettings.strSink.c_str());

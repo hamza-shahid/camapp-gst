@@ -36,6 +36,7 @@ typedef std::shared_ptr<RegFlagManager>	RegFlagManagerPtr;
 struct RegAppSettings
 {
 	BOOL			bAutoStart;
+	BOOL			bShowFps;
 	std::string		strCameraName;
 	std::string		strSource;
 	std::string		strSink;

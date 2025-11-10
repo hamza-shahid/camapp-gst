@@ -141,6 +141,7 @@ void CMainFrame::SaveAppSettings()
 	RegAppSettings appSettings;
 
 	appSettings.bAutoStart = m_bAutoStart;
+	appSettings.bShowFps = m_bShowFps;
 	appSettings.strCameraName = m_gstPlayer.GetDeviceName(m_iSelectedCam);
 	appSettings.strSource = m_strSource;
 	appSettings.strSink = m_strSink;
@@ -275,6 +276,9 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	BOOL bAppSettingsRet = m_registryManager.GetAppSettings(appSettings);
 
 	m_bAutoStart = appSettings.bAutoStart;
+	m_bShowFps = appSettings.bShowFps;
+
+	GetMenu()->GetSubMenu(ID_MENU_OPTIONS)->CheckMenuItem(ID_OPTIONS_SHOWFPS, m_bShowFps ? MF_CHECKED : MF_UNCHECKED);
 	GetMenu()->GetSubMenu(ID_MENU_OPTIONS)->CheckMenuItem(ID_OPTIONS_AUTOSTART, m_bAutoStart ? MF_CHECKED : MF_UNCHECKED);
 	GetMenu()->GetSubMenu(ID_MENU_OPTIONS)->EnableMenuItem(ID_OPTIONS_COMPARE_SNAPSHOT, m_bSnapshotAsBMP ? MF_ENABLED : MF_DISABLED);
 
