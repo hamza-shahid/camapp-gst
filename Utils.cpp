@@ -74,6 +74,8 @@ HBITMAP CUtils::LoadPNGToHBITMAP(UINT nResourceID, int targetWidth, int targetHe
 
 BOOL CUtils::SaveBGRXToFile(const BYTE* pBgrxData, int nWidth, int nHeight, std::string filename, CLSID clsidEncoder)
 {
+    BOOL bRet = FALSE;
+
     // Step 1: Initialize GDI+ Bitmap with the BGRX data
     Bitmap bitmap(nWidth, nHeight, PixelFormat32bppRGB); // PixelFormat32bppRGB works for BGRX format
 
@@ -102,10 +104,41 @@ BOOL CUtils::SaveBGRXToFile(const BYTE* pBgrxData, int nWidth, int nHeight, std:
     // Unlock the bitmap after data is copied
     bitmap.UnlockBits(&bitmapData);
 
-    if (bitmap.Save(StdStringToStdWString(filename).c_str(), &clsidEncoder, nullptr) != Ok)
-        return FALSE;
+    IStream* pImgStream = nullptr;
 
-    return TRUE;
+    HRESULT hr = CreateStreamOnHGlobal(NULL, TRUE, &pImgStream);
+    if (SUCCEEDED(hr))
+    {
+        if (bitmap.Save(pImgStream, &clsidEncoder) == Ok)
+        {
+            // Rewind stream
+            LARGE_INTEGER li = {};
+            pImgStream->Seek(li, STREAM_SEEK_SET, NULL);
+
+            // Write to file manually
+            std::ofstream ofs(filename, std::ios::binary);
+            if (ofs.is_open() && !ofs.fail())
+            {
+                STATSTG stat;
+                pImgStream->Stat(&stat, STATFLAG_NONAME);
+
+                ULONG ulBytesRead = 0;
+                std::vector<BYTE> vBuffer(stat.cbSize.LowPart);
+
+                hr = pImgStream->Read(vBuffer.data(), vBuffer.size(), &ulBytesRead);
+                if (SUCCEEDED(hr))
+                {
+                    ofs.write(reinterpret_cast<const char*>(vBuffer.data()), ulBytesRead);
+                    if (ofs.good())
+                        bRet = TRUE;
+                    ofs.flush();
+                }
+            }
+        }
+        pImgStream->Release();
+    }
+
+    return bRet;
 }
 
 BOOL CUtils::SaveBGRXToBMP(const BYTE* pBgrxData, int nWidth, int nHeight, std::string filename)
