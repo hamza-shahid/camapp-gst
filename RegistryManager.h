@@ -108,6 +108,8 @@ public:
 	void StartMonitoring(CFrameWndEx* pParent);
 	void StopMonitoring();
 
+	BOOL StartMinimized();
+
 protected:
 	std::unordered_map<std::string, HKEY>		m_mapParentKeys;
 	std::unordered_map<int, RegFlagManagerPtr>	m_regFlags;

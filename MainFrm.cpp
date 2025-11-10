@@ -379,6 +379,9 @@ BOOL CMainFrame::PreCreateWindow(CREATESTRUCT& cs)
 	cs.cx = 800;  // Width
 	cs.cy = 600;  // Height
 
+	if (m_registryManager.StartMinimized())
+		cs.style |= WS_MINIMIZE;
+
 	cs.dwExStyle &= ~WS_EX_CLIENTEDGE;
 	cs.lpszClass = AfxRegisterWndClass(0);
 	return TRUE;

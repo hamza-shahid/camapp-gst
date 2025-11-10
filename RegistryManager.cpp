@@ -20,6 +20,7 @@
 #define REG_SOURCE_VALUE		"Source"
 #define REG_SINK_VALUE			"Sink"
 #define REG_AUTO_START			"AutoStart"
+#define REG_START_MINIMIZED		"StartMinimized"
 #define REG_MEDIA_TYPE			"MediaType"
 #define REG_FORMAT				"Format"
 #define REG_WIDTH				"Width"
@@ -183,6 +184,17 @@ LONG CRegistryManager::CheckRegFlag(std::string flagName, BOOL& bFlag)
 	}
 
 	return lStatus;
+}
+
+BOOL CRegistryManager::StartMinimized()
+{
+	BOOL bStartMinimized = FALSE;
+	LSTATUS lStatus = CheckRegFlag(REG_START_MINIMIZED, bStartMinimized);
+
+	if (lStatus == ERROR_SUCCESS && bStartMinimized)
+		return TRUE;
+	else
+		return FALSE;
 }
 
 LSTATUS CRegistryManager::ReadString(std::string strKeyName, std::string &strKeyValue)
