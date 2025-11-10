@@ -1002,10 +1002,11 @@ LRESULT CMainFrame::OnRegistrySnapshot(WPARAM wParam, LPARAM lParam)
 			{
 				if (m_gstPlayer.GetSnapshot(&pBuffer, nSize, nWidth, nHeight, format))
 				{
-					std::string snapshotPrefix = "snap_";
+					//std::string snapshotPrefix = "snap_";
 					std::string snapshotExt = "png";
-					int iSnapshotNo = CUtils::GetNextFileNumberInSeq(snapshotDir.c_str(), snapshotPrefix.c_str(), snapshotExt.c_str());
-					std::string snapshotFile = snapshotDir + "\\" + snapshotPrefix + std::to_string(iSnapshotNo);
+					//int iSnapshotNo = CUtils::GetNextFileNumberInSeq(snapshotDir.c_str(), snapshotPrefix.c_str(), snapshotExt.c_str());
+					//std::string snapshotFile = snapshotDir + "\\" + snapshotPrefix + std::to_string(iSnapshotNo);
+					std::string snapshotFile = snapshotDir + "\\" + "snapshot";
 
 					CUtils::SaveFrameToFile(pBuffer, nWidth, nHeight, format, snapshotFile, snapshotExt);
 
