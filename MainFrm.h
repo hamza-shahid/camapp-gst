@@ -158,6 +158,7 @@ protected:
 	afx_msg LRESULT  OnToolbarButtonDown(WPARAM wParam, LPARAM lParam);
 	afx_msg LRESULT  OnToolbarButtonUp(WPARAM wParam, LPARAM lParam);
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
+	afx_msg LRESULT OnExposureReg(WPARAM wParam, LPARAM lParam);
 
 	DECLARE_MESSAGE_MAP()
 };

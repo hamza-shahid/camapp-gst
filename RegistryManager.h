@@ -11,6 +11,7 @@
 #define WM_TAKE_SNAPSHOT						(WM_USER + 22)
 #define WM_BARCODE_SCAN_REG						(WM_USER + 23)
 #define WM_START_STOP_PREVIEW_REG				(WM_USER + 24)
+#define WM_EXPOSURE_REG							(WM_USER + 25)
 
 enum RegNotPolicy
 {
@@ -37,6 +38,7 @@ struct RegAppSettings
 {
 	BOOL			bAutoStart;
 	BOOL			bShowFps;
+	BOOL			bAutoExposure;
 	std::string		strCameraName;
 	std::string		strSource;
 	std::string		strSink;

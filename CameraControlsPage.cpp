@@ -113,6 +113,32 @@ void CCameraControlsPage::SetCameraControlInterface(CComPtr<IAMCameraControl> pA
 	m_pSliderProperties->SetAmCameraControlInterface(pAmCameraControl);
 }
 
+void CCameraControlsPage::SetExposure(BOOL bAuto, long lValue)
+{
+	if (m_pAmCameraControl)
+	{
+		HRESULT hr;
+
+		if (bAuto)
+			hr = m_pAmCameraControl->Set(CameraControl_Exposure, lValue, CameraControl_Flags_Auto);
+		else
+			hr = m_pAmCameraControl->Set(CameraControl_Exposure, lValue, CameraControl_Flags_Manual);
+	}
+}
+
+long CCameraControlsPage::GetExposure()
+{
+	long lExposure = 0;
+
+	if (m_pAmCameraControl)
+	{
+		long lFlags = -1;
+		HRESULT hr = m_pAmCameraControl->Get(CameraControl_Exposure, &lExposure, &lFlags);
+	}
+
+	return lExposure;
+}
+
 // CCameraControlsPage message handlers
 
 void CCameraControlsPage::OnEditEnter(UINT nEditCtrlId)

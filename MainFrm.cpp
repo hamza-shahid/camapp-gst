@@ -84,6 +84,7 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWndEx)
 	ON_MESSAGE(WM_USER_TOOLBAR_BUTTONDOWN, &CMainFrame::OnToolbarButtonDown)
 	ON_MESSAGE(WM_USER_TOOLBAR_BUTTONUP, &CMainFrame::OnToolbarButtonUp)
 	ON_WM_TIMER()
+	ON_MESSAGE(WM_EXPOSURE_REG, &CMainFrame::OnExposureReg)
 END_MESSAGE_MAP()
 
 static UINT indicators[] =
@@ -367,6 +368,13 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	CDockingManager::SetDockingMode(DT_SMART);
 	RedrawWindow(nullptr, nullptr, RDW_ALLCHILDREN | RDW_INVALIDATE | RDW_UPDATENOW | RDW_FRAME | RDW_ERASE);
 
+	HRESULT hr = GetCameraSettingsInterfaces();
+	if (SUCCEEDED(hr))
+	{
+		m_dlgVidProcAmp.SetVideoProcAmpInterface(m_pAmVideoProcAmp);
+		m_dlgCamCtrl.SetCameraControlInterface(m_pAmCameraControl);
+	}
+
 	m_registryManager.StartMonitoring(this);
 
 	if (bAutoStart)
@@ -435,6 +443,14 @@ void CMainFrame::OnCameraSelect(UINT id)
 
 	m_deviceCapsList = m_gstPlayer.GetDeviceCaps(m_strSource, m_iSelectedCam);
 	m_deviceCapsDlg.UpdateDeviceCaps(m_strSource, m_iSelectedCam, m_deviceCapsList);
+
+	HRESULT hr = GetCameraSettingsInterfaces();
+	if (SUCCEEDED(hr))
+	{
+		m_dlgVidProcAmp.SetVideoProcAmpInterface(m_pAmVideoProcAmp);
+		m_dlgCamCtrl.SetCameraControlInterface(m_pAmCameraControl);
+	}
+
 }
 
 void CMainFrame::OnSourceSelect(UINT id)
@@ -719,13 +735,6 @@ void CMainFrame::OnCameraSettings()
 	
 	m_pDlgCamSettingsPropSheet->AddPage(&m_dlgCamCtrl);
 	m_pDlgCamSettingsPropSheet->AddPage(&m_dlgVidProcAmp);
-
-	HRESULT hr = GetCameraSettingsInterfaces();
-	if (SUCCEEDED(hr))
-	{
-		m_dlgVidProcAmp.SetVideoProcAmpInterface(m_pAmVideoProcAmp);
-		m_dlgCamCtrl.SetCameraControlInterface(m_pAmCameraControl);
-	}
 
 	m_pDlgCamSettingsPropSheet->DoModal();
 }
@@ -1138,4 +1147,26 @@ void CMainFrame::OnClose()
 {
 	m_registryManager.StopMonitoring();
 	CFrameWndEx::OnClose();
+}
+
+LRESULT CMainFrame::OnExposureReg(WPARAM wParam, LPARAM lParam)
+{
+	long lExposureRegVal = lParam;
+
+	if (lExposureRegVal == 0)
+	{
+		long lExposure = m_dlgCamCtrl.GetExposure();
+		m_dlgCamCtrl.SetExposure(TRUE, lExposure);
+	}
+	else if (lExposureRegVal == 1)
+	{
+		long lExposure = m_dlgCamCtrl.GetExposure();
+		m_dlgCamCtrl.SetExposure(FALSE, lExposure);
+	}
+	else if (lExposureRegVal >= 4)
+	{
+		m_dlgCamCtrl.SetExposure(FALSE, -lExposureRegVal);
+	}
+
+	return 0;
 }

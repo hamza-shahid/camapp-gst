@@ -15,6 +15,8 @@ public:
 	virtual ~CCameraControlsPage();
 
 	void SetCameraControlInterface(CComPtr<IAMCameraControl> pAmCameraControl);
+	void SetExposure(BOOL bAuto, long lValue);
+	long GetExposure();
 
 // Dialog Data
 #ifdef AFX_DESIGN_TIME

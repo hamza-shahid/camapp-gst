@@ -32,6 +32,7 @@
 #define REG_BARCODE_COL_START_X	"BarcodeColumnStartX"
 #define REG_BARCODE_COL_WIDTH	"BarcodeColumnWidth"
 #define REG_BARCODE_ENABLED		"BarcodeEnabled"
+#define REG_EXPOSURE			"Exposure"
 
 
 using namespace std::chrono_literals;
@@ -78,6 +79,7 @@ CRegistryManager::CRegistryManager(CWnd* pParent /*=nullptr*/)
 	NewRegFlagManager(REG_SNAPSHOT_KEY_NAME, IDC_EDIT_REG_SNAPSHOT_FLAG, WM_TAKE_SNAPSHOT, 1, 1, ON_INTERVAL, 2000ms);
 	NewRegFlagManager(REG_BARCODE_ENABLED, IDC_EDIT_REG_BARCODE_FLAG, WM_BARCODE_SCAN_REG, 0, 0, ON_UPDATE, 1000ms);
 	NewRegFlagManager(REG_START_STOP_PREVIEW, IDC_EDIT_REG_START_STOP_FLAG, WM_START_STOP_PREVIEW_REG, 0, 0, ON_UPDATE, 1000ms);
+	NewRegFlagManager(REG_EXPOSURE, IDC_EXPOSURE, WM_EXPOSURE_REG, 0, 0, ON_UPDATE, 1000ms);
 }
 
 CRegistryManager::~CRegistryManager()

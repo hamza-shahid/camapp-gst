@@ -198,6 +198,7 @@
 #define IDC_EDIT_TILT                   4025
 #define IDC_EDIT_ROLL                   4026
 #define IDC_LIST_BARCODE                4027
+#define IDC_EXPOSURE                    4028
 #define ID_OPTIONS_PREVIEW              32771
 #define ID_SOURCE_KERNELSTREAMING       32772
 #define ID_SOURCE_MEDIAFOUNDATION       32773
