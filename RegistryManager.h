@@ -21,9 +21,8 @@ enum RegNotPolicy
 
 struct RegFlagManager
 {
-	CString			strRegFlagName;
+	std::string		strRegFlagName;
 	std::thread		regFlagMonitorThread;
-	int				nEditBoxId;
 	UINT			uiOnChangeMsg;
 	DWORD			dwDefaultValue;
 	DWORD			dwPrevValue;
@@ -84,8 +83,7 @@ protected:
 	void Monitor(RegFlagManagerPtr pRegFlagManager);
 
 	void NewRegFlagManager(
-		CString strRegKeyValueName,
-		int nEditBoxId,
+		std::string strRegKeyValueName,
 		UINT uOnChangeMsg,
 		DWORD dwDefaultVal,
 		DWORD dwPrevVal,
@@ -115,12 +113,11 @@ public:
 
 protected:
 	std::unordered_map<std::string, HKEY>		m_mapParentKeys;
-	std::unordered_map<int, RegFlagManagerPtr>	m_regFlags;
+	std::unordered_map<std::string, RegFlagManagerPtr>	m_regFlags;
 
 	CComboBox	m_comboParentKey;
 	CString		m_strParentKey;
 	CString		m_strSubKey;
-	CString		m_strSnapshotDirRegKeyName;
 
 	CFrameWndEx*		m_pParent;
 	std::atomic<bool>	m_bMonitor;

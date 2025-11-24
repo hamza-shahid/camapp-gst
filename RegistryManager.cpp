@@ -42,8 +42,7 @@ using namespace std::chrono_literals;
 IMPLEMENT_DYNAMIC(CRegistryManager, CDialogEx)
 
 void CRegistryManager::NewRegFlagManager(
-	CString strRegKeyValueName,
-	int nEditBoxId,
+	std::string strRegKeyValueName,
 	UINT uOnChangeMsg,
 	DWORD dwDefaultVal,
 	DWORD dwPrevVal,
@@ -51,14 +50,13 @@ void CRegistryManager::NewRegFlagManager(
 	std::chrono::milliseconds waitInterval
 )
 {
-	m_regFlags[nEditBoxId] = std::make_shared<RegFlagManager>();
-	m_regFlags[nEditBoxId]->strRegFlagName = strRegKeyValueName;
-	m_regFlags[nEditBoxId]->nEditBoxId = nEditBoxId;
-	m_regFlags[nEditBoxId]->uiOnChangeMsg = uOnChangeMsg;
-	m_regFlags[nEditBoxId]->dwDefaultValue = dwDefaultVal;
-	m_regFlags[nEditBoxId]->dwPrevValue = dwPrevVal;
-	m_regFlags[nEditBoxId]->eNotPolicy = eNotifyPolicy;
-	m_regFlags[nEditBoxId]->waitInterval = waitInterval;
+	m_regFlags[strRegKeyValueName] = std::make_shared<RegFlagManager>();
+	m_regFlags[strRegKeyValueName]->strRegFlagName = strRegKeyValueName;
+	m_regFlags[strRegKeyValueName]->uiOnChangeMsg = uOnChangeMsg;
+	m_regFlags[strRegKeyValueName]->dwDefaultValue = dwDefaultVal;
+	m_regFlags[strRegKeyValueName]->dwPrevValue = dwPrevVal;
+	m_regFlags[strRegKeyValueName]->eNotPolicy = eNotifyPolicy;
+	m_regFlags[strRegKeyValueName]->waitInterval = waitInterval;
 }
 
 CRegistryManager::CRegistryManager(CWnd* pParent /*=nullptr*/)
@@ -73,13 +71,12 @@ CRegistryManager::CRegistryManager(CWnd* pParent /*=nullptr*/)
 
 	m_strParentKey				= "HKEY_LOCAL_MACHINE";
 	m_strSubKey					= REG_SUB_KEY;
-	m_strSnapshotDirRegKeyName	= REG_SNAPSHOT_DIR_NAME;
 
-	NewRegFlagManager(REG_AOI_KEY_NAME, IDC_EDIT_REG_AOI_FLAG, WM_PRINT_ANALYSIS_AOI_PARTITIONS_READY, 1, 1, ON_INTERVAL, 1000ms);
-	NewRegFlagManager(REG_SNAPSHOT_KEY_NAME, IDC_EDIT_REG_SNAPSHOT_FLAG, WM_TAKE_SNAPSHOT, 1, 1, ON_INTERVAL, 2000ms);
-	NewRegFlagManager(REG_BARCODE_ENABLED, IDC_EDIT_REG_BARCODE_FLAG, WM_BARCODE_SCAN_REG, 0, 0, ON_UPDATE, 1000ms);
-	NewRegFlagManager(REG_START_STOP_PREVIEW, IDC_EDIT_REG_START_STOP_FLAG, WM_START_STOP_PREVIEW_REG, 0, 0, ON_UPDATE, 1000ms);
-	NewRegFlagManager(REG_EXPOSURE, IDC_EXPOSURE, WM_EXPOSURE_REG, 0, 0, ON_UPDATE, 1000ms);
+	NewRegFlagManager(REG_AOI_KEY_NAME, WM_PRINT_ANALYSIS_AOI_PARTITIONS_READY, 1, 1, ON_INTERVAL, 1000ms);
+	NewRegFlagManager(REG_SNAPSHOT_KEY_NAME, WM_TAKE_SNAPSHOT, 1, 1, ON_INTERVAL, 2000ms);
+	NewRegFlagManager(REG_BARCODE_ENABLED, WM_BARCODE_SCAN_REG, 0, 0, ON_UPDATE, 1000ms);
+	NewRegFlagManager(REG_START_STOP_PREVIEW, WM_START_STOP_PREVIEW_REG, 0, 0, ON_UPDATE, 1000ms);
+	NewRegFlagManager(REG_EXPOSURE, WM_EXPOSURE_REG, 0, 0, ON_UPDATE, 1000ms);
 }
 
 CRegistryManager::~CRegistryManager()
@@ -91,11 +88,7 @@ void CRegistryManager::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
 
-	for (const auto& regFlagManager : m_regFlags)
-		DDX_Text(pDX, regFlagManager.first, regFlagManager.second->strRegFlagName);
-
 	DDX_Text(pDX, IDC_EDIT_REG_SUB_KEY, m_strSubKey);
-	DDX_Text(pDX, IDC_EDIT_REG_SNAPSHOT_DIR, m_strSnapshotDirRegKeyName);
 	DDX_Control(pDX, IDC_COMBO_REG_AOI_PARENT_KEY, m_comboParentKey);
 }
 
@@ -150,7 +143,7 @@ LRESULT CRegistryManager::GetSnapshotDir(std::string& strSnapshotDir)
 		char pszDir[512];
 		ULONG unDirSize = sizeof(pszDir);
 
-		lStatus = regKey.QueryStringValue(m_strSnapshotDirRegKeyName.GetBuffer(), pszDir, &unDirSize);
+		lStatus = regKey.QueryStringValue(REG_SNAPSHOT_DIR_NAME, pszDir, &unDirSize);
 
 		if (lStatus == ERROR_SUCCESS)
 			strSnapshotDir = pszDir;
@@ -278,7 +271,7 @@ void CRegistryManager::WritePrintPartitionsResultsToReg(const char* pJsonStr)
 
 	// Clean up
 	cJSON_Delete(pJson);
-	SetRegFlag(m_regFlags[IDC_EDIT_REG_AOI_FLAG]->strRegFlagName.GetBuffer());
+	SetRegFlag(REG_AOI_KEY_NAME);
 }
 
 const char* CRegistryManager::ReadPrintPartitionsFromReg()
@@ -286,7 +279,7 @@ const char* CRegistryManager::ReadPrintPartitionsFromReg()
 	char* pJsonStr = NULL;
 	int idx = 0;
 	BOOL bReady = TRUE;		// true means it's not ready
-	LONG lResult = CheckRegFlag(m_regFlags[IDC_EDIT_REG_AOI_FLAG]->strRegFlagName.GetBuffer(), bReady);
+	LONG lResult = CheckRegFlag(REG_AOI_KEY_NAME, bReady);
 
 	cJSON* root = cJSON_CreateObject();
 
@@ -398,14 +391,14 @@ void CRegistryManager::Monitor(RegFlagManagerPtr pRegFlagManager)
 	CRegKey regKey;
 	BOOL bExiting = FALSE;
 
-	LSTATUS lStatus = OpenRegFlag(pRegFlagManager->strRegFlagName.GetBuffer(), pRegFlagManager->dwDefaultValue, regKey);
+	LSTATUS lStatus = OpenRegFlag(pRegFlagManager->strRegFlagName, pRegFlagManager->dwDefaultValue, regKey);
 	if (lStatus == ERROR_SUCCESS)
 	{
 		while (m_bMonitor)
 		{
 			DWORD dwValue;
 
-			lStatus = regKey.QueryDWORDValue(pRegFlagManager->strRegFlagName.GetBuffer(), dwValue);
+			lStatus = regKey.QueryDWORDValue(pRegFlagManager->strRegFlagName.c_str(), dwValue);
 
 			if (lStatus == ERROR_SUCCESS)
 			{
@@ -428,7 +421,7 @@ void CRegistryManager::Monitor(RegFlagManagerPtr pRegFlagManager)
 
 void CRegistryManager::SetSnapshotFlag()
 {
-	SetRegFlag(m_regFlags[IDC_EDIT_REG_SNAPSHOT_FLAG]->strRegFlagName.GetBuffer());
+	SetRegFlag(REG_SNAPSHOT_KEY_NAME);
 }
 
 void CRegistryManager::WriteBarcodesToReg(BarcodeList* pBarcodeList)
@@ -462,7 +455,7 @@ void CRegistryManager::WriteBarcodesToReg(BarcodeList* pBarcodeList)
 				nBarcodeIdx++;
 			}
 
-			SetRegFlag(m_regFlags[IDC_EDIT_REG_BARCODE_FLAG]->strRegFlagName.GetBuffer());
+			SetRegFlag(REG_BARCODE_ENABLED);
 		}
 	}
 }
